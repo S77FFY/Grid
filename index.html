@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>neon-grid</title>
+<style>
+  :root{
+    --bg:#000000;
+    --tile:#111214;
+    --neon:#35b6f2;
+    --neon-soft:rgba(53,182,242,.55);
+    --neon-dim:rgba(53,182,242,.16);
+    --ink:#dff4ff;
+    --muted:#6f8894;
+    --gap:clamp(7px,2.2vw,14px);
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+  html,body{margin:0;background:var(--bg);}
+
+  body{
+    font-family:"Avenir Next","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);
+    padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 24px);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  header{
+    max-width:660px;
+    margin:0 auto 16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .wordmark{
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:#f2e6a8;
+    background:#4a4520;
+    padding:8px 18px;
+    border-radius:9px;
+  }
+
+  .grid{
+    max-width:660px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:var(--gap);
+  }
+
+  .tile{
+    position:relative;
+    aspect-ratio:1/1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid var(--neon);
+    border-radius:3px;
+    background:var(--tile);
+    text-decoration:none;
+    color:var(--ink);
+    padding:8px;
+    box-shadow:0 0 6px var(--neon-soft), 0 0 18px var(--neon-soft), inset 0 0 10px rgba(53,182,242,.12);
+    transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+  }
+
+  .tile .label{
+    display:block;
+    width:100%;
+    text-align:center;
+    line-height:1.15;
+    font-weight:600;
+    letter-spacing:.01em;
+    overflow-wrap:anywhere;
+    text-shadow:0 0 8px rgba(53,182,242,.45);
+  }
+
+  a.tile:hover,
+  a.tile:focus-visible{
+    transform:translateY(-2px);
+    border-color:#7fd8ff;
+    box-shadow:0 0 10px #7fd8ff, 0 0 30px var(--neon-soft), inset 0 0 16px rgba(53,182,242,.22);
+    outline:none;
+  }
+
+  a.tile:focus-visible{border-color:#ffffff}
+  a.tile:active{transform:translateY(0)}
+
+  /* Slot with a name but no link yet */
+  .tile.pending{
+    border-style:dashed;
+    border-color:var(--neon-soft);
+    box-shadow:0 0 4px var(--neon-dim), inset 0 0 8px rgba(53,182,242,.06);
+    color:var(--muted);
+  }
+  .tile.pending .label{text-shadow:none;font-weight:500}
+
+  /* Unused slots */
+  .tile.empty{
+    border-color:var(--neon-dim);
+    box-shadow:none;
+    background:#0b0c0d;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .tile{transition:none}
+    a.tile:hover,a.tile:focus-visible{transform:none}
+  }
+</style>
+</head>
+<body>
+
+<header><span class="wordmark">neon-grid</span></header>
+
+<main class="grid" id="grid" aria-label="Project launcher"></main>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   ADD YOUR PAGES HERE
+   Each entry: { name: "Shown on the tile", url: "https://..." }
+   Leave url as "" to reserve the slot until the link exists.
+   Add a new line and it fills the next square automatically.
+   ───────────────────────────────────────────────────────────── */
+const LINKS = [
+  { name: "Room 46",      url: "https://small-boat-e0d9.ben-stiff.workers.dev" },
+  { name: "Maze",         url: "https://s77ffy.github.io/Room46/index.html" },
+  { name: "Kadoosh",      url: "https://s77ffy.github.io/Kadoosh/index.html" },
+  { name: "Darts Night",  url: "https://s77ffy.github.io/DartsNight/index.html" },
+  { name: "Bat Physics",  url: "https://s77ffy.github.io/BatPhysics/index.html" },
+  { name: "Darts Scorer", url: "" },
+  { name: "Fenn Museum",  url: "https://s77ffy.github.io/FennMuseum/index.html" },
+  { name: "The Fenn Job", url: "https://s77ffy.github.io/TheFennJob/index.html" },
+  { name: "Noms",         url: "https://s77ffy.github.io/Noms/index.html" },
+  { name: "Mechanism",    url: "https://s77ffy.github.io/Mechanism/index.html" },
+  { name: "Mora Jai",     url: "https://s77ffy.github.io/MoraJai/index.html" }
+];
+
+const COLUMNS = 5;
+const ROWS = 9;
+const SLOTS = COLUMNS * ROWS;   // 45 squares
+
+const grid = document.getElementById("grid");
+const total = Math.max(SLOTS, Math.ceil(LINKS.length / COLUMNS) * COLUMNS);
+
+for (let i = 0; i < total; i++) {
+  const item = LINKS[i];
+
+  if (item && item.url) {
+    const a = document.createElement("a");
+    a.className = "tile";
+    a.href = item.url;
+    a.innerHTML = '<span class="label">' + escapeHtml(item.name) + '</span>';
+    grid.appendChild(a);
+  } else if (item) {
+    const d = document.createElement("div");
+    d.className = "tile pending";
+    d.title = "Link not added yet";
+    d.innerHTML = '<span class="label">' + escapeHtml(item.name) + '</span>';
+    grid.appendChild(d);
+  } else {
+    const d = document.createElement("div");
+    d.className = "tile empty";
+    d.setAttribute("aria-hidden", "true");
+    grid.appendChild(d);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+  ));
+}
+
+/* Shrink each label until it fits inside its square. */
+function fitLabels() {
+  document.querySelectorAll(".tile .label").forEach(label => {
+    const tile = label.parentElement;
+    const style = getComputedStyle(tile);
+    const maxW = tile.clientWidth  - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const maxH = tile.clientHeight - parseFloat(style.paddingTop)  - parseFloat(style.paddingBottom);
+    if (maxW <= 0 || maxH <= 0) return;
+
+    let lo = 6, hi = 30, best = 6;
+    for (let i = 0; i < 9; i++) {
+      const mid = (lo + hi) / 2;
+      label.style.fontSize = mid + "px";
+      if (label.scrollWidth <= maxW + 0.5 && label.scrollHeight <= maxH + 0.5) {
+        best = mid; lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    label.style.fontSize = best.toFixed(2) + "px";
+  });
+}
+
+fitLabels();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitLabels);
+
+let t;
+addEventListener("resize", () => { clearTimeout(t); t = setTimeout(fitLabels, 100); });
+addEventListener("orientationchange", () => setTimeout(fitLabels, 200));
+</script>
+</body>
+</html>

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>501 Darts Scorer v1.0.9</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #d4a843;
+  --chalk: #f0ebe0;
+  --bust: #e05555;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: var(--chalk);
+  font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body { display:flex; flex-direction:column; }
+
+/* ── SCOREBOARD ── */
+#scoreboard {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 2px solid #222;
+  background: #111;
+  min-height: 72px;
+}
+.pcol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px 4px;
+  border-right: 1px solid #1e1e1e;
+  position: relative;
+}
+.pcol:last-child { border-right: none; }
+.pcol.active { background: #161e16; }
+.pcol.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gold);
+}
+.pname { font-size: 10px; letter-spacing: 2px; color: #666; text-transform: uppercase; }
+.pcol.active .pname { color: var(--gold); }
+.pscore {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 44px;
+  line-height: 1;
+  color: #ddd;
+}
+.pcol.active .pscore { color: #fff; }
+.pscore.bust-col { color: var(--bust) !important; }
+.plastTurn {
+  font-size: 10px;
+  color: #666;
+  letter-spacing: 0.5px;
+  min-height: 13px;
+  margin-top: 0px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  padding: 0 2px;
+}
+.pcol.active .plastTurn { color: #888; }
+.pdarts {
+  display: flex; gap: 3px; min-height: 15px; margin-top: 1px;
+  flex-wrap: wrap; justify-content: center;
+}
+.dchip {
+  border-radius: 3px; padding: 0 5px;
+  font-size: 11px; font-weight: 700;
+  background: #252525; color: #999;
+}
+.dchip.dbl  { color: var(--gold);  background: #2a2200; }
+.dchip.tpl  { color: #7ac4ff;      background: #00192a; }
+.dchip.bull { color: #ff6666;       background: #2a0000; }
+.dchip.bust { color: #555; }
+
+/* ── TURN BAR ── */
+#turnBar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: #0c0c0c;
+  border-bottom: 1px solid #1a1a1a;
+  gap: 8px;
+}
+#turnLabel {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 18px; letter-spacing: 2px; color: var(--gold); min-width: 28px;
+}
+#turnTotal {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 26px; color: #fff; min-width: 48px;
+}
+#dartsRemain { font-size: 11px; color: #555; letter-spacing: 1px; flex: 1; }
+.tbar-btns { display:flex; gap:6px; }
+.tbtn {
+  padding: 5px 11px; border: none; border-radius: 4px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: 1px; cursor: pointer;
+}
+#btnMiss  { background:#1e1e1e; color:#777; border:1px solid #333; }
+#btnUndo  { background:#1e1e1e; color:#aaa; border:1px solid #333; }
+#btnNext  { background:var(--gold); color:#0d0d0d; }
+#btnMiss:active, #btnUndo:active { background:#2a2a2a; }
+#btnNext:active { opacity:0.75; }
+
+/* ── BOARD ── */
+#boardWrap {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  min-height: 0; position: relative; padding: 2px;
+}
+#boardCanvas { display:block; touch-action:none; cursor:crosshair; }
+
+#floatUndo, #floatUndoTurn {
+  position: absolute;
+  right: 10px;
+  padding: 10px 16px;
+  background: #1a1a1a;
+  border: 2px solid #3a3a3a;
+  border-radius: 8px;
+  color: #bbb;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 17px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  z-index: 10;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+#floatUndo     { bottom: 58px; }
+#floatUndoTurn { bottom: 10px; border-color: #2a2a2a; color: #888; font-size: 15px; }
+#floatUndo:active, #floatUndoTurn:active {
+  background: #2a2a2a;
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ── FLASH ── */
+#flash {
+  position:fixed; inset:0; background:#fff;
+  opacity:0; pointer-events:none; z-index:200;
+}
+@keyframes doFlash { 0%{opacity:0.3} 100%{opacity:0} }
+
+/* ── OVERLAYS ── */
+.overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.93);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:300; gap:14px; padding:24px 20px; text-align:center;
+}
+.overlay h1 {
+  font-family:'Bebas Neue', Impact, sans-serif;
+  font-size:52px; letter-spacing:4px; color:var(--gold); line-height:1;
+}
+.overlay p { font-size:13px; color:#888; line-height:1.7; }
+.hint { font-size:10px; color:#444; letter-spacing:1px; margin-top:-4px; }
+
+/* player count buttons */
+.pbtn-row { display:flex; gap:14px; }
+.pbtn {
+  width:70px; height:70px; border-radius:8px;
+  border:2px solid #333; background:#181818;
+  color:var(--chalk); font-family:'Bebas Neue', Impact, sans-serif;
+  font-size:38px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition: border-color 0.12s, background 0.12s;
+}
+.pbtn:active { border-color:var(--gold); background:#1e1a00; color:var(--gold); }
+
+/* no-bust toggle */
+.toggle-row {
+  display:flex; align-items:center; gap:10px;
+  background:#161616; border:1px solid #2a2a2a;
+  border-radius:8px; padding:10px 16px; cursor:pointer;
+  transition: border-color 0.15s;
+}
+.toggle-row:active { border-color:#555; }
+.toggle-row input[type=checkbox] { display:none; }
+.toggle-box {
+  width:22px; height:22px; border-radius:4px;
+  border:2px solid #444; background:#111;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition: background 0.15s, border-color 0.15s;
+  font-size:14px; line-height:1;
+}
+.toggle-box.checked { background:var(--gold); border-color:var(--gold); color:#000; }
+.toggle-text { text-align:left; }
+.toggle-title { font-size:14px; font-weight:700; color:var(--chalk); letter-spacing:1px; }
+.toggle-desc  { font-size:10px; color:#666; line-height:1.5; }
+
+/* action buttons */
+.obtn-row { display:flex; gap:10px; }
+.obtn {
+  padding:13px 26px; border-radius:5px; border:none;
+  font-family:'Bebas Neue', Impact, sans-serif;
+  font-size:22px; letter-spacing:2px; cursor:pointer;
+}
+.obtn.gold { background:var(--gold); color:#0d0d0d; }
+.obtn.dark { background:#1e1e1e; color:#aaa; border:1px solid #333; }
+.obtn:active { opacity:0.75; }
+.obtn.undo-win { background:#1a1a1a; color:#888; border:1px solid #333; font-size:16px; margin-top:-4px; }
+.obtn.undo-win:active { border-color:var(--gold); color:var(--gold); }
+
+.win-name { font-family:'Bebas Neue', Impact, sans-serif; font-size:38px; color:var(--gold); letter-spacing:3px; }
+.win-sub  { font-size:13px; color:#666; letter-spacing:1px; }
+
+.version { position:fixed; bottom:4px; right:8px; font-size:9px; color:#2a2a2a; letter-spacing:1px; pointer-events:none; z-index:1; }
+.hidden { display:none !important; }
+
+@keyframes bustShake {
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-5px)}
+  60%{transform:translateX(5px)}
+}
+.bustShake { animation:bustShake 0.28s ease; }
+</style>
+</head>
+<body>
+
+<div id="scoreboard"></div>
+
+<div id="turnBar">
+  <span id="turnLabel">P1</span>
+  <span id="turnTotal">—</span>
+  <span id="dartsRemain">3 darts</span>
+  <div class="tbar-btns">
+    <button class="tbtn" id="btnMiss">MISS</button>
+    <button class="tbtn" id="btnUndo">UNDO</button>
+    <button class="tbtn" id="btnNext">NEXT ›</button>
+  </div>
+</div>
+
+<div id="boardWrap">
+  <canvas id="boardCanvas"></canvas>
+  <button id="floatUndo">⟵ UNDO DART</button>
+  <button id="floatUndoTurn">⟵ UNDO TURN</button>
+</div>
+
+<div id="flash"></div>
+<div class="version">v1.0.9</div>
+
+<!-- Setup overlay -->
+<div class="overlay" id="ovSetup">
+  <h1>501 Darts</h1>
+  <p>How many players?</p>
+  <div class="pbtn-row">
+    <button class="pbtn" id="pb1">1</button>
+    <button class="pbtn" id="pb2">2</button>
+    <button class="pbtn" id="pb3">3</button>
+    <button class="pbtn" id="pb4">4</button>
+  </div>
+
+  <div class="toggle-row" id="noBustToggle">
+    <div class="toggle-box" id="noBustBox"></div>
+    <div class="toggle-text">
+      <div class="toggle-title">No Bust Rule</div>
+      <div class="toggle-desc">Scores that don't finish count up to the point<br>you can no longer score (e.g. need 16, hit 8 then 8 = only first 8 counts)</div>
+    </div>
+  </div>
+
+  <p class="hint">TAP THE BOARD WHERE YOUR DART LANDS<br>MUST FINISH ON A DOUBLE OR BULLSEYE</p>
+</div>
+
+<!-- Winner overlay -->
+<div class="overlay hidden" id="ovWinner">
+  <h1>🎯 Winner!</h1>
+  <div class="win-name" id="winName"></div>
+  <div class="win-sub"  id="winSub"></div>
+  <div class="obtn-row">
+    <button class="obtn dark" id="btnPlayers">PLAYERS</button>
+    <button class="obtn gold" id="btnRematch">REMATCH</button>
+  </div>
+  <button class="obtn undo-win" id="btnUndoWin">⟵ UNDO LAST DART</button>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+// ── Board constants ──
+// Standard dartboard zones from OUTSIDE IN:
+//   frac > 0.95          → Miss (outside board)
+//   0.90 < frac <= 0.95  → Doubles ring  (×2)
+//   0.55 < frac <= 0.90  → Outer single  (×1)
+//   0.48 < frac <= 0.55  → Trebles ring  (×3)
+//   0.115 < frac <= 0.48 → Inner single  (×1)
+//   0.058 < frac <= 0.115→ Bull outer    (25)
+//   frac <= 0.058        → Bullseye      (50)
+var SEGS  = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+var SLICE = (Math.PI * 2) / 20;
+var START = -Math.PI / 2 - SLICE / 2;
+
+// Zone fractions (fraction of outer radius R)
+var Z = {
+  miss:    0.95,   // outside this = miss
+  dblOuter:0.95,
+  dblInner:0.794,
+  sngOuter:0.794,
+  sngMid:  0.595,  // outer single bottom / treble top
+  tplOuter:0.595,
+  tplInner:0.403,
+  sngInner:0.403,
+  bullOuter:0.115,
+  bullInner:0.058
+};
+
+// ── Canvas ──
+var canvas = document.getElementById('boardCanvas');
+var ctx    = canvas.getContext('2d');
+var CX, CY, R, NR;
+
+function resize() {
+  var wrap  = document.getElementById('boardWrap');
+  var avail = Math.min(wrap.clientWidth, wrap.clientHeight) - 4;
+  R  = (avail / 2) / 1.24;
+  NR = R * 1.115;
+  CX = CY = R * 1.24;
+  canvas.width = canvas.height = Math.round(R * 1.24 * 2);
+  drawBoard();
+}
+
+// ── Drawing ──
+var dartMarks = [];
+
+function drawBoard() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // dark surround behind number ring
+  ctx.beginPath();
+  ctx.arc(CX, CY, R * 1.22, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fill();
+
+  // wooden felt base
+  var bg = ctx.createRadialGradient(CX, CY, 0, CX, CY, R);
+  bg.addColorStop(0, '#2d1e0a');
+  bg.addColorStop(1, '#160d04');
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.fillStyle = bg;
+  ctx.fill();
+
+  // outer wire
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#9a7838';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Draw the 4 alternating zones for each segment
+  // Order outside-in: doubles ring, outer single, trebles ring, inner single
+  var zones = [
+    { o: Z.dblOuter, i: Z.dblInner, ring: true  }, // doubles
+    { o: Z.sngOuter, i: Z.sngMid,   ring: false }, // outer single
+    { o: Z.tplOuter, i: Z.tplInner, ring: true  }, // trebles
+    { o: Z.sngInner, i: Z.bullOuter,ring: false }, // inner single
+  ];
+
+  for (var si = 0; si < 20; si++) {
+    var a1 = START + si * SLICE;
+    var a2 = a1 + SLICE;
+    var ci = si % 2;
+    zones.forEach(function (z) {
+      ctx.beginPath();
+      ctx.arc(CX, CY, R * z.o, a1, a2);
+      ctx.arc(CX, CY, R * z.i, a2, a1, true);
+      ctx.closePath();
+      if (z.ring) {
+        ctx.fillStyle = ci === 0 ? '#b01c1c' : '#1a7038';
+      } else {
+        ctx.fillStyle = ci === 0 ? '#181818' : '#ddd5bb';
+      }
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+    });
+  }
+
+  // Wire rings
+  [Z.dblOuter, Z.dblInner, Z.tplOuter, Z.tplInner, Z.bullOuter, Z.bullInner].forEach(function (f) {
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * f, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(160,130,55,0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Radial wires
+  for (var wi = 0; wi < 20; wi++) {
+    var wa = START + wi * SLICE;
+    ctx.beginPath();
+    ctx.moveTo(CX + R * Z.bullOuter * Math.cos(wa), CY + R * Z.bullOuter * Math.sin(wa));
+    ctx.lineTo(CX + R * Z.dblOuter  * Math.cos(wa), CY + R * Z.dblOuter  * Math.sin(wa));
+    ctx.strokeStyle = 'rgba(140,110,45,0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Bull ring (green, 25)
+  ctx.beginPath();
+  ctx.arc(CX, CY, R * Z.bullOuter, 0, Math.PI * 2);
+  ctx.fillStyle = '#1a7038';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(150,120,50,0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Bullseye (red, 50)
+  ctx.beginPath();
+  ctx.arc(CX, CY, R * Z.bullInner, 0, Math.PI * 2);
+  ctx.fillStyle = '#b01c1c';
+  ctx.fill();
+
+  // Numbers OUTSIDE the scoring area
+  var numFS = Math.max(10, Math.round(R * 0.108));
+  ctx.font = '700 ' + numFS + 'px "Barlow Condensed","Arial Narrow",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (var ni = 0; ni < 20; ni++) {
+    var na = START + (ni + 0.5) * SLICE;
+    var nx = CX + NR * Math.cos(na);
+    var ny = CY + NR * Math.sin(na);
+    ctx.beginPath();
+    ctx.arc(nx, ny, numFS * 0.78, 0, Math.PI * 2);
+    ctx.fillStyle = '#151515';
+    ctx.fill();
+    ctx.fillStyle = '#f0ebe0';
+    ctx.fillText(String(SEGS[ni]), nx, ny);
+  }
+
+  // Dart marks
+  dartMarks.forEach(function (d) { paintMark(d.x, d.y, d.color); });
+}
+
+function paintMark(x, y, color) {
+  ctx.beginPath(); ctx.arc(x,y,5.5,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(x,y,4.5,0,Math.PI*2);
+  ctx.fillStyle=color; ctx.fill();
+  ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.fill();
+}
+
+// ── Hit detection ──
+function hitTest(px, py) {
+  var dx = px - CX, dy = py - CY;
+  var dist = Math.sqrt(dx*dx + dy*dy);
+  var frac = dist / R;
+
+  if (frac > Z.miss)     return { score:0,  label:'0',    type:'miss'   };
+  if (frac <= Z.bullInner) return { score:50, label:'BULL', type:'bull'   };
+  if (frac <= Z.bullOuter) return { score:25, label:'25',   type:'bull25' };
+
+  // Which segment?
+  var angle = Math.atan2(dy, dx) - START;
+  if (angle < 0) angle += Math.PI * 2;
+  var idx = Math.floor(angle / SLICE) % 20;
+  var seg = SEGS[idx];
+
+  if (frac > Z.dblInner)  return { score:seg*2, label:'D'+seg, type:'double', seg:seg };
+  if (frac > Z.tplOuter)  return { score:seg,   label:String(seg), type:'single', seg:seg };
+  if (frac > Z.tplInner)  return { score:seg*3, label:'T'+seg, type:'triple', seg:seg };
+  return                         { score:seg,   label:String(seg), type:'single', seg:seg };
+}
+
+// ── Game state ──
+var G = {
+  players: [], numPlayers: 0, current: 0,
+  turnDarts: [], gameOn: false, noBust: true,
+  turnHistory: [],  // stack of completed turns for undo-turn
+  lastTurn: [],     // per-player last completed turn summary
+  transitioning: false  // true during bust delay, blocks new taps
+};
+
+// ── No-bust rule ──
+// Each turn we track the running score as darts land.
+// A dart is "dead" (scores 0) if adding it would make the score go below 0,
+// equal 1 (unreachable finish), or reach 0 without a double/bull.
+// BUT unlike standard bust: valid darts earlier in the same turn still count.
+function applyNoBust(playerScore, dart) {
+  var remaining = playerScore - dart.score;
+
+  // Can't finish without double
+  if (remaining === 0 && dart.type !== 'double' && dart.type !== 'bull') {
+    return { counts: false, reason: 'need double to finish' };
+  }
+  // Would go below 0 or strand on 1
+  if (remaining < 0 || remaining === 1) {
+    return { counts: false, reason: 'no bust — dart dead' };
+  }
+  return { counts: true };
+}
+
+function applyStandardBust(playerScore, dart) {
+  var remaining = playerScore - dart.score;
+  if (remaining === 0 && dart.type !== 'double' && dart.type !== 'bull') {
+    return { bust: true };
+  }
+  if (remaining < 0 || remaining === 1) {
+    return { bust: true };
+  }
+  return { bust: false };
+}
+
+function startGame(n) {
+  G.numPlayers = n;
+  G.players    = [];
+  G.current    = 0;
+  G.turnDarts  = [];
+  G.gameOn     = true;
+  G.turnHistory   = [];
+  G.lastTurn      = [];
+  G.transitioning = false;
+  dartMarks       = [];
+  for (var i = 0; i < n; i++) {
+    G.players.push({ name:'P'+(i+1), score:501, thrown:0 });
+  }
+  hide('ovSetup');
+  hide('ovWinner');
+  buildScoreboard();
+  updateUI();
+  drawBoard();
+}
+
+function rematch()   { startGame(G.numPlayers); }
+function showSetup() { hide('ovWinner'); show('ovSetup'); G.gameOn = false; }
+
+// ── Scoreboard DOM ──
+function buildScoreboard() {
+  var sb = document.getElementById('scoreboard');
+  sb.innerHTML = '';
+  G.players.forEach(function (p, i) {
+    var col = document.createElement('div');
+    col.className = 'pcol' + (i === G.current ? ' active' : '');
+    col.id = 'pc' + i;
+    col.innerHTML =
+      '<div class="pname">'+p.name+'</div>' +
+      '<div class="pscore" id="ps'+i+'">'+p.score+'</div>' +
+      '<div class="plastTurn" id="plt'+i+'"></div>' +
+      '<div class="pdarts" id="pd'+i+'"></div>';
+    sb.appendChild(col);
+  });
+}
+
+function updateUI() {
+  G.players.forEach(function (p, i) {
+    var col = document.getElementById('pc'+i);
+    if (!col) return;
+    col.className = 'pcol'+(i===G.current?' active':'');
+    var sc = document.getElementById('ps'+i);
+    if (sc) { sc.textContent = p.score; sc.className = 'pscore'; }
+    var plt = document.getElementById('plt'+i);
+    if (plt) plt.textContent = G.lastTurn[i] || '';
+    var dd = document.getElementById('pd'+i);
+    if (dd) dd.innerHTML = '';
+  });
+
+  var dd = document.getElementById('pd'+G.current);
+  if (dd) {
+    G.turnDarts.forEach(function (d) {
+      var chip = document.createElement('span');
+      var cls = d.dead ? 'bust'
+              : d.type==='double' ? 'dbl'
+              : d.type==='triple' ? 'tpl'
+              : (d.type==='bull'||d.type==='bull25') ? 'bull' : '';
+      chip.className = 'dchip'+(cls?' '+cls:'');
+      chip.textContent = d.dead ? d.label+'✗' : d.label;
+      dd.appendChild(chip);
+    });
+  }
+
+  var total = G.turnDarts.reduce(function(s,d){ return s + (d.dead?0:d.score); }, 0);
+  var left  = 3 - G.turnDarts.length;
+  document.getElementById('turnLabel').textContent   = G.players[G.current].name;
+  document.getElementById('turnTotal').textContent   = total > 0 ? '+'+total : '—';
+  document.getElementById('dartsRemain').textContent = left+(left===1?' dart':' darts');
+
+  var has = G.turnDarts.length > 0;
+  var hasTurn = G.turnHistory.length > 0 && G.turnDarts.length === 0;
+  document.getElementById('btnUndo').style.opacity      = has ? '1' : '0.35';
+  document.getElementById('floatUndo').style.opacity    = has ? '1' : '0.35';
+  document.getElementById('floatUndoTurn').style.opacity = hasTurn ? '1' : '0.35';
+  document.getElementById('btnNext').style.opacity      = has ? '1' : '0.35';
+}
+
+// ── Tap / score ──
+function onTap(clientX, clientY) {
+  if (!G.gameOn || G.turnDarts.length >= 3 || G.transitioning) return;
+
+  var rect   = canvas.getBoundingClientRect();
+  var scaleX = canvas.width  / rect.width;
+  var scaleY = canvas.height / rect.height;
+  var px     = (clientX - rect.left) * scaleX;
+  var py     = (clientY - rect.top)  * scaleY;
+
+  var hit = hitTest(px, py);
+  var p   = G.players[G.current];
+
+  if (G.noBust) {
+    var nb = applyNoBust(p.score, hit);
+    if (!nb.counts) {
+      // Bust: earlier darts in this turn still count, but turn ends immediately
+      hit.dead = true;
+      hit.wasBust = true;
+      p.thrown++;
+      G.turnDarts.push(hit);
+      bustAnim(G.current);
+      doFlash();
+      dartMarks = [];
+      drawBoard();
+      updateUI();
+      G.transitioning = true;
+      setTimeout(function(){ G.transitioning = false; nextPlayer(); }, 800);
+      return;
+    } else {
+      p.score -= hit.score;
+      var color = hit.type==='double'?'#ffd700':hit.type==='triple'?'#77ccff':hit.type==='bull'?'#ff5555':'#44ee88';
+      dartMarks.push({x:px, y:py, color:color});
+      drawBoard();
+      if (p.score === 0) { p.thrown++; G.turnDarts.push(hit); endGame(); return; }
+    }
+  } else {
+    // Standard bust: score reverts to start of turn, turn ends immediately
+    var sb = applyStandardBust(p.score, hit);
+    if (sb.bust) {
+      // Restore any scores already deducted this turn
+      var validScore = G.turnDarts.reduce(function(s,d){ return s + (d.dead?0:d.score); }, 0);
+      p.score += validScore;
+      p.thrown++;
+      hit.dead = true;
+      hit.wasBust = true;
+      G.turnDarts.push(hit);
+      bustAnim(G.current);
+      doFlash();
+      dartMarks = [];
+      drawBoard();
+      updateUI();
+      // Brief pause so bust animation shows before turn advances
+      G.transitioning = true;
+      setTimeout(function(){ G.transitioning = false; nextPlayer(); }, 800);
+      return;
+    } else {
+      p.score -= hit.score;
+      var color2 = hit.type==='double'?'#ffd700':hit.type==='triple'?'#77ccff':hit.type==='bull'?'#ff5555':'#44ee88';
+      dartMarks.push({x:px, y:py, color:color2});
+      drawBoard();
+      if (p.score === 0) { p.thrown++; G.turnDarts.push(hit); endGame(); return; }
+    }
+  }
+
+  p.thrown++;
+  G.turnDarts.push(hit);
+  doFlash();
+  updateUI();
+  if (G.turnDarts.length >= 3) nextPlayer();
+}
+
+function buildTurnLabel(darts) {
+  // e.g. "7 + D7 + T20 = 42"  or "BUST" if all dead
+  var parts  = [];
+  var total  = 0;
+  darts.forEach(function(d) {
+    if (d.wasBust) {
+      parts.push('BUST');
+    } else if (d.dead) {
+      parts.push(d.label + '✗');
+    } else {
+      parts.push(d.label);
+      total += d.score;
+    }
+  });
+  if (parts.length === 0) return '';
+  var hasBust = darts.some(function(d){ return d.wasBust || d.dead; });
+  var suffix  = hasBust ? '' : ' = ' + total;
+  return parts.join(' + ') + suffix;
+}
+
+function nextPlayer() {
+  // Save last turn label for the player who just threw
+  var label = buildTurnLabel(G.turnDarts);
+  G.lastTurn[G.current] = label;
+
+  // Save completed turn to history so it can be fully undone
+  var scoreBefore = G.players[G.current].score +
+    G.turnDarts.reduce(function(s,d){ return s + (d.dead?0:d.score); }, 0);
+  G.turnHistory.push({
+    playerIdx: G.current,
+    darts:     G.turnDarts.slice(),
+    scoreBefore: scoreBefore,
+    lastTurnBefore: G.lastTurn[G.current]
+  });
+  G.turnDarts = [];
+  G.current   = (G.current + 1) % G.numPlayers;
+  dartMarks   = [];
+  drawBoard();
+  updateUI();
+}
+
+function undoTurn() {
+  // Can only undo a completed turn (not mid-turn — use undoLast for that)
+  if (!G.gameOn || G.turnHistory.length === 0) return;
+  // Also can't undo turn if current player is mid-throw — undo darts first
+  if (G.turnDarts.length > 0) return;
+  var prev = G.turnHistory.pop();
+  G.current = prev.playerIdx;
+  G.players[G.current].score = prev.scoreBefore;
+  G.players[G.current].thrown -= prev.darts.length;
+  G.lastTurn[G.current] = prev.lastTurnBefore || '';
+  G.turnDarts = [];
+  dartMarks   = [];
+  drawBoard();
+  updateUI();
+}
+
+function missOne() {
+  if (!G.gameOn || G.turnDarts.length >= 3) return;
+  G.players[G.current].thrown++;
+  G.turnDarts.push({ score:0, label:'0', type:'miss' });
+  updateUI();
+  if (G.turnDarts.length >= 3) nextPlayer();
+}
+
+function undoLast() {
+  if (!G.gameOn || G.turnDarts.length === 0) return;
+  var d = G.turnDarts.pop();
+  if (!d.dead) {
+    G.players[G.current].score += d.score;
+    G.players[G.current].thrown--;
+    dartMarks.pop();
+    drawBoard();
+  } else {
+    G.players[G.current].thrown--;
+  }
+  updateUI();
+}
+
+function endGame() {
+  G.gameOn  = false;
+  G.wonBy   = G.current;  // remember winner for undo
+  var p = G.players[G.current];
+  document.getElementById('winName').textContent = p.name+' Wins!';
+  document.getElementById('winSub').textContent  = p.thrown+' darts thrown';
+  show('ovWinner');
+}
+
+function undoWin() {
+  // Restore the winning dart and resume the game
+  if (G.wonBy === undefined || G.wonBy === null) return;
+  G.current = G.wonBy;
+  var p = G.players[G.current];
+  // The winning dart was the last one pushed into turnDarts
+  var d = G.turnDarts.pop();
+  if (d) {
+    p.score  += d.score;
+    p.thrown--;
+    dartMarks.pop();
+    drawBoard();
+  }
+  G.wonBy  = null;
+  G.gameOn = true;
+  hide('ovWinner');
+  updateUI();
+}
+
+// ── Bust animation ──
+function bustAnim(idx) {
+  var sc = document.getElementById('ps'+idx);
+  if (!sc) return;
+  sc.classList.add('bust-col');
+  sc.textContent = 'BUST';
+  sc.classList.remove('bustShake');
+  void sc.offsetWidth;
+  sc.classList.add('bustShake');
+  setTimeout(function () {
+    sc.classList.remove('bust-col','bustShake');
+    sc.textContent = G.players[idx].score;
+  }, 700);
+}
+
+function doFlash() {
+  var f = document.getElementById('flash');
+  f.style.animation='none'; void f.offsetWidth;
+  f.style.animation='doFlash 0.18s ease-out forwards';
+}
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ── No-bust toggle ──
+var noBustToggle = document.getElementById('noBustToggle');
+var noBustBox    = document.getElementById('noBustBox');
+// Default no-bust ON
+noBustBox.textContent = '✓';
+noBustBox.className   = 'toggle-box checked';
+noBustToggle.addEventListener('click', function () {
+  G.noBust = !G.noBust;
+  noBustBox.textContent = G.noBust ? '✓' : '';
+  noBustBox.className   = 'toggle-box' + (G.noBust ? ' checked' : '');
+});
+
+// ── Player buttons ──
+document.getElementById('pb1').addEventListener('click', function(){ startGame(1); });
+document.getElementById('pb2').addEventListener('click', function(){ startGame(2); });
+document.getElementById('pb3').addEventListener('click', function(){ startGame(3); });
+document.getElementById('pb4').addEventListener('click', function(){ startGame(4); });
+
+// ── Turn bar ──
+document.getElementById('btnNext').addEventListener('click', function(){
+  if (G.gameOn && G.turnDarts.length > 0) nextPlayer();
+});
+document.getElementById('btnUndo').addEventListener('click', undoLast);
+document.getElementById('floatUndo').addEventListener('click', undoLast);
+document.getElementById('floatUndoTurn').addEventListener('click', undoTurn);
+document.getElementById('btnMiss').addEventListener('click', missOne);
+
+// ── Winner overlay ──
+document.getElementById('btnRematch').addEventListener('click', rematch);
+document.getElementById('btnUndoWin').addEventListener('click', undoWin);
+document.getElementById('btnPlayers').addEventListener('click', showSetup);
+
+// ── Touch / click on board ──
+canvas.addEventListener('touchend', function(e){
+  e.preventDefault();
+  var t = e.changedTouches[0];
+  onTap(t.clientX, t.clientY);
+}, { passive:false });
+
+canvas.addEventListener('click', function(e){ onTap(e.clientX, e.clientY); });
+
+window.addEventListener('resize', resize);
+
+// ── Init ──
+resize();
+
+})();
+</script>
+</body>
+</html>

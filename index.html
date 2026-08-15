@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>neon-grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#000000;
@@ -22,7 +25,7 @@
   html,body{margin:0;background:var(--bg);}
 
   body{
-    font-family:"Avenir Next","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    font-family:"Share Tech Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Courier New",monospace;
     color:var(--ink);
     padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 24px);
     -webkit-font-smoothing:antialiased;
@@ -37,9 +40,9 @@
   }
 
   .wordmark{
-    font-size:15px;
-    font-weight:600;
-    letter-spacing:.02em;
+    font-size:17px;
+    font-weight:400;
+    letter-spacing:.08em;
     color:#f2e6a8;
     background:#4a4520;
     padding:8px 18px;
@@ -75,9 +78,12 @@
     width:100%;
     text-align:center;
     line-height:1.15;
-    font-weight:600;
-    letter-spacing:.01em;
-    overflow-wrap:anywhere;
+    font-weight:400;
+    letter-spacing:0;
+    white-space:normal;
+    overflow-wrap:break-word;
+    word-break:normal;
+    hyphens:none;
     text-shadow:0 0 8px rgba(53,182,242,.45);
   }
 
@@ -99,7 +105,7 @@
     box-shadow:0 0 4px var(--neon-dim), inset 0 0 8px rgba(53,182,242,.06);
     color:var(--muted);
   }
-  .tile.pending .label{text-shadow:none;font-weight:500}
+  .tile.pending .label{text-shadow:none}
 
   /* Unused slots */
   .tile.empty{
@@ -133,7 +139,7 @@ const LINKS = [
   { name: "Kadoosh",      url: "https://s77ffy.github.io/Kadoosh/index.html" },
   { name: "Darts Night",  url: "https://s77ffy.github.io/DartsNight/index.html" },
   { name: "Bat Physics",  url: "https://s77ffy.github.io/BatPhysics/index.html" },
-  { name: "Darts Scorer", url: "" },
+  { name: "Darts Scorer", url: "https://s77ffy.github.io/Grid/darts-scorer-v1.0.9.html" },
   { name: "Fenn Museum",  url: "https://s77ffy.github.io/FennMuseum/index.html" },
   { name: "The Fenn Job", url: "https://s77ffy.github.io/TheFennJob/index.html" },
   { name: "Noms",         url: "https://s77ffy.github.io/Noms/index.html" },
@@ -186,7 +192,7 @@ function fitLabels() {
     const maxH = tile.clientHeight - parseFloat(style.paddingTop)  - parseFloat(style.paddingBottom);
     if (maxW <= 0 || maxH <= 0) return;
 
-    let lo = 6, hi = 30, best = 6;
+    let lo = 8, hi = 34, best = 8;
     for (let i = 0; i < 9; i++) {
       const mid = (lo + hi) / 2;
       label.style.fontSize = mid + "px";

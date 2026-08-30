@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Publish">
+<meta name="app-repo" content="Grid">
+<meta name="app-version" content="1.0.0">
+<title>Publish</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet" crossorigin="anonymous">
+<style>
+  :root{
+    --bg:#000; --panel:#0c0e10; --neon:#35b6f2; --gold:#ffd700;
+    --green:#00ff88; --red:#ff4466; --ink:#dff4ff; --muted:#6f8894;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'Share Tech Mono',ui-monospace,Menlo,Consolas,monospace;
+    font-size:14px; line-height:1.5;
+    padding:calc(env(safe-area-inset-top) + 16px) 14px calc(env(safe-area-inset-bottom) + 40px);
+    max-width:560px; margin:0 auto; -webkit-font-smoothing:antialiased;
+  }
+  h1{
+    font-family:'Orbitron',sans-serif; font-size:17px; font-weight:700;
+    letter-spacing:2px; color:#fff; text-shadow:0 0 10px var(--neon);
+    text-align:center; margin-bottom:4px;
+  }
+  .sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:18px}
+
+  section{
+    border:1px solid rgba(53,182,242,.35); border-radius:4px;
+    background:var(--panel); padding:12px; margin-bottom:12px;
+    box-shadow:0 0 10px rgba(53,182,242,.12);
+  }
+  .step{
+    font-family:'Orbitron',sans-serif; font-size:11px; letter-spacing:2px;
+    color:var(--neon); text-transform:uppercase; margin-bottom:9px;
+  }
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  input[type=text],input[type=password],select{
+    width:100%; padding:10px; background:#000; color:var(--ink);
+    border:1px solid rgba(53,182,242,.4); border-radius:3px;
+    font-family:inherit; font-size:14px;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--neon);box-shadow:0 0 8px rgba(53,182,242,.4)}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+
+  button{
+    width:100%; padding:12px; margin-top:10px; cursor:pointer;
+    background:transparent; color:var(--neon); border:1px solid var(--neon);
+    border-radius:3px; font-family:inherit; font-size:14px; letter-spacing:2px;
+    text-transform:uppercase;
+  }
+  button:active{background:rgba(53,182,242,.15)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  button.primary{border-color:var(--gold);color:var(--gold);box-shadow:0 0 12px rgba(255,215,0,.25)}
+  button.ghost{border-color:#333;color:#666;letter-spacing:1px;font-size:12px;padding:9px}
+
+  .check{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted)}
+  .check input{width:18px;height:18px;accent-color:var(--neon)}
+
+  .filebtn{
+    display:block; text-align:center; padding:22px 12px; cursor:pointer;
+    border:1px dashed rgba(53,182,242,.5); border-radius:3px; color:var(--neon);
+  }
+  .filebtn:active{background:rgba(53,182,242,.08)}
+  #file{display:none}
+
+  .detected{margin-top:10px;font-size:12px;display:none}
+  .detected.show{display:block}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid #17191c}
+  .kv span:first-child{color:var(--muted)}
+  .kv span:last-child{color:#fff;text-align:right;word-break:break-all}
+
+  #log{
+    margin-top:12px; font-size:12px; white-space:pre-wrap; word-break:break-word;
+    max-height:40vh; overflow-y:auto;
+  }
+  .line{padding:2px 0}
+  .ok{color:var(--green)} .err{color:var(--red)} .warn{color:var(--gold)} .dim{color:var(--muted)}
+  a{color:var(--neon)}
+  .hint{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45}
+</style>
+</head>
+<body>
+
+<h1>PUBLISHER</h1>
+<div class="sub">github.com/S77FFY &rarr; index.html</div>
+
+<section>
+  <div class="step">1 &middot; Token</div>
+  <input type="password" id="token" placeholder="github_pat_..." autocomplete="off" autocapitalize="off" spellcheck="false">
+  <div class="check">
+    <input type="checkbox" id="remember" checked>
+    <label for="remember" style="margin:0">Remember on this device</label>
+  </div>
+  <button class="ghost" id="forget">Forget token</button>
+  <div class="hint">
+    Fine-grained token, repository access limited to your repos, Permissions &rarr; Contents: Read and write.
+    Stored only in this browser &mdash; never in the page itself.
+  </div>
+</section>
+
+<section>
+  <div class="step">2 &middot; File</div>
+  <label class="filebtn" for="file">Choose the HTML file&hellip;</label>
+  <input type="file" id="file" accept=".html,text/html">
+  <div class="detected" id="detected">
+    <div class="kv"><span>File</span><span id="d-file">&mdash;</span></div>
+    <div class="kv"><span>Repo</span><span id="d-repo">&mdash;</span></div>
+    <div class="kv"><span>Version</span><span id="d-ver">&mdash;</span></div>
+    <div class="kv"><span>Size</span><span id="d-size">&mdash;</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="step">3 &middot; Target</div>
+  <label for="repo">Repository</label>
+  <div class="row">
+    <select id="repo"></select>
+    <input type="text" id="repoOther" placeholder="other repo" style="display:none">
+  </div>
+  <label for="version">Version</label>
+  <input type="text" id="version" placeholder="1.0.0">
+  <div class="check">
+    <input type="checkbox" id="archive" checked>
+    <label for="archive" style="margin:0">Also commit builds/&lt;repo&gt;-v&lt;version&gt;.html</label>
+  </div>
+  <div class="check">
+    <input type="checkbox" id="stamp" checked>
+    <label for="stamp" style="margin:0">Add app-repo / app-version meta tags if missing</label>
+  </div>
+</section>
+
+<button class="primary" id="publish" disabled>Publish to index.html</button>
+<div id="log"></div>
+
+<script>
+const OWNER = "S77FFY";
+const REPOS = ["Room46","Kadoosh","DartsNight","BatPhysics","FennMuseum","TheFennJob","Noms","Mechanism","MoraJai","Grid"];
+const API = "https://api.github.com";
+
+const $ = id => document.getElementById(id);
+let fileText = "", fileName = "";
+
+/* ---------- repo dropdown ---------- */
+REPOS.forEach(r => { const o = document.createElement("option"); o.value = o.textContent = r; $("repo").appendChild(o); });
+const other = document.createElement("option");
+other.value = "__other"; other.textContent = "Other\u2026";
+$("repo").appendChild(other);
+$("repo").addEventListener("change", () => {
+  $("repoOther").style.display = $("repo").value === "__other" ? "block" : "none";
+});
+function targetRepo(){
+  return $("repo").value === "__other" ? $("repoOther").value.trim() : $("repo").value;
+}
+
+/* ---------- token ---------- */
+try {
+  const saved = localStorage.getItem("gh_token");
+  if (saved) $("token").value = saved;
+} catch(e){}
+$("token").addEventListener("input", () => {
+  if ($("remember").checked) { try { localStorage.setItem("gh_token", $("token").value.trim()); } catch(e){} }
+});
+$("forget").addEventListener("click", () => {
+  try { localStorage.removeItem("gh_token"); } catch(e){}
+  $("token").value = "";
+  log("Token cleared from this device.", "dim");
+});
+
+/* ---------- logging ---------- */
+function log(msg, cls){
+  const d = document.createElement("div");
+  d.className = "line " + (cls || "");
+  d.innerHTML = msg;
+  $("log").appendChild(d);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+/* ---------- file pick ---------- */
+$("file").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    fileText = r.result;
+    fileName = f.name;
+    const meta = readMeta(fileText);
+    const guess = meta.repo || guessRepoFromName(f.name);
+    const ver = meta.version || guessVersionFromName(f.name) || "";
+
+    $("d-file").textContent = f.name;
+    $("d-repo").textContent = meta.repo || (guess ? guess + " (from filename)" : "not found");
+    $("d-ver").textContent  = ver || "not found";
+    $("d-size").textContent = (f.size / 1024).toFixed(0) + " KB";
+    $("detected").classList.add("show");
+
+    if (guess && REPOS.includes(guess)) $("repo").value = guess;
+    else if (guess) { $("repo").value = "__other"; $("repoOther").style.display = "block"; $("repoOther").value = guess; }
+    if (ver) $("version").value = ver;
+
+    if (!meta.repo) log("No app-repo meta tag \u2014 check the target repo below before publishing.", "warn");
+    $("publish").disabled = false;
+  };
+  r.readAsText(f);
+});
+
+function readMeta(html){
+  const grab = name => {
+    const m = html.match(new RegExp('<meta[^>]+name=["\']' + name + '["\'][^>]*content=["\']([^"\']*)["\']', "i"))
+           || html.match(new RegExp('<meta[^>]+content=["\']([^"\']*)["\'][^>]*name=["\']' + name + '["\']', "i"));
+    return m ? m[1].trim() : "";
+  };
+  return { repo: grab("app-repo"), version: grab("app-version") };
+}
+function guessRepoFromName(n){
+  const base = n.replace(/\.html?$/i, "").replace(/[-_]?v?\d+(\.\d+)*$/i, "").replace(/[-_]/g, "");
+  const hit = REPOS.find(r => r.toLowerCase() === base.toLowerCase());
+  return hit || "";
+}
+function guessVersionFromName(n){
+  const m = n.match(/v?(\d+\.\d+(\.\d+)?)/i);
+  return m ? m[1] : "";
+}
+
+/* ---------- github helpers ---------- */
+function headers(){
+  return {
+    "Authorization": "Bearer " + $("token").value.trim(),
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+}
+function b64(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+async function gh(path, options){
+  const res = await fetch(API + path, Object.assign({ headers: headers() }, options || {}));
+  let body = null;
+  try { body = await res.json(); } catch(e){}
+  return { ok: res.ok, status: res.status, body: body };
+}
+async function defaultBranch(repo){
+  const r = await gh("/repos/" + OWNER + "/" + repo);
+  if (!r.ok) throw new Error("Cannot read repo (" + r.status + "): " + ((r.body && r.body.message) || ""));
+  return r.body.default_branch || "main";
+}
+async function shaOf(repo, path, branch){
+  const r = await gh("/repos/" + OWNER + "/" + repo + "/contents/" + path + "?ref=" + branch);
+  return r.ok && r.body ? r.body.sha : null;   // null = new file
+}
+async function putFile(repo, path, branch, content, message){
+  const sha = await shaOf(repo, path, branch);
+  const payload = { message: message, content: b64(content), branch: branch };
+  if (sha) payload.sha = sha;
+  const r = await gh("/repos/" + OWNER + "/" + repo + "/contents/" + path, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok) throw new Error(path + " failed (" + r.status + "): " + ((r.body && r.body.message) || ""));
+  return sha ? "updated" : "created";
+}
+
+/* ---------- stamping ---------- */
+function stampMeta(html, repo, version){
+  let out = html;
+  if (!/name=["']app-repo["']/i.test(out))
+    out = out.replace(/<head([^>]*)>/i, '<head$1>\n<meta name="app-repo" content="' + repo + '">');
+  if (version && !/name=["']app-version["']/i.test(out))
+    out = out.replace(/<head([^>]*)>/i, '<head$1>\n<meta name="app-version" content="' + version + '">');
+  return out;
+}
+
+/* ---------- verify ---------- */
+async function verify(repo, version){
+  const url = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/index.html?cb=" + Date.now();
+  for (let i = 1; i <= 5; i++){
+    await new Promise(r => setTimeout(r, i === 1 ? 8000 : 12000));
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.ok){
+        const live = readMeta(await res.text()).version;
+        if (live && version && live === version){ log("Verified live: " + repo + " v" + live, "ok"); return; }
+        if (live) log("Live version is " + live + " (attempt " + i + "/5)\u2026", "dim");
+        else log("Live page has no version meta (attempt " + i + "/5)\u2026", "dim");
+      }
+    } catch(e){ log("Check " + i + "/5 blocked or offline\u2026", "dim"); }
+  }
+  log("Could not confirm the live version \u2014 Pages can take a minute. Open it and check the stamp.", "warn");
+}
+
+/* ---------- publish ---------- */
+$("publish").addEventListener("click", async () => {
+  const repo = targetRepo();
+  const version = $("version").value.trim();
+  const token = $("token").value.trim();
+
+  $("log").innerHTML = "";
+  if (!token){ log("Add your token first.", "err"); return; }
+  if (!repo){ log("Pick a target repo.", "err"); return; }
+  if (!fileText){ log("Choose a file.", "err"); return; }
+
+  const meta = readMeta(fileText);
+  if (meta.repo && meta.repo.toLowerCase() !== repo.toLowerCase()){
+    if (!confirm("This file says it belongs to " + meta.repo + ", but you're publishing to " + repo + ".\n\nCarry on?")) return;
+    log("Overriding file's own repo (" + meta.repo + ").", "warn");
+  }
+
+  let content = fileText;
+  if ($("stamp").checked) content = stampMeta(content, repo, version);
+
+  $("publish").disabled = true;
+  try {
+    log("Reading " + OWNER + "/" + repo + "\u2026", "dim");
+    const branch = await defaultBranch(repo);
+    log("Branch: " + branch, "dim");
+
+    const msg = "Publish " + repo + (version ? " v" + version : "");
+    const r1 = await putFile(repo, "index.html", branch, content, msg);
+    log("index.html " + r1 + ".", "ok");
+
+    if ($("archive").checked && version){
+      const path = "builds/" + repo.toLowerCase() + "-v" + version + ".html";
+      const r2 = await putFile(repo, path, branch, content, "Archive " + repo + " v" + version);
+      log(path + " " + r2 + ".", "ok");
+    } else if ($("archive").checked){
+      log("No version given \u2014 skipped the archive copy.", "warn");
+    }
+
+    const live = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/";
+    log('Done. <a href="' + live + '" target="_blank" rel="noopener">Open ' + repo + '</a>', "ok");
+    log("Checking the live page\u2026", "dim");
+    await verify(repo, version);
+  } catch(err){
+    log(String(err.message || err), "err");
+  } finally {
+    $("publish").disabled = false;
+  }
+});
+</script>
+</body>
+</html>

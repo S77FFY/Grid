@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Publish">
 <meta name="app-repo" content="Grid">
-<meta name="app-version" content="1.0.0">
+<meta name="app-version" content="1.1.1">
 <title>Publish</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -85,12 +85,20 @@
   .line{padding:2px 0}
   .ok{color:var(--green)} .err{color:var(--red)} .warn{color:var(--gold)} .dim{color:var(--muted)}
   a{color:var(--neon)}
+  #stamp{
+    position:fixed;right:calc(env(safe-area-inset-right) + 8px);
+    bottom:calc(env(safe-area-inset-bottom) + 5px);
+    font-size:9px;letter-spacing:1px;color:var(--neon);opacity:.3;
+    pointer-events:none;user-select:none;
+  }
+  .hint.warn{color:var(--gold)} .hint.err{color:var(--red)}
   .hint{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45}
 </style>
 </head>
 <body>
 
 <h1>PUBLISHER</h1>
+<div id="stamp">PUBLISH v1.1.1</div>
 <div class="sub">github.com/S77FFY &rarr; index.html</div>
 
 <section>
@@ -102,7 +110,8 @@
   </div>
   <button class="ghost" id="forget">Forget token</button>
   <div class="hint">
-    Fine-grained token, repository access limited to your repos, Permissions &rarr; Contents: Read and write.
+    Fine-grained token, Repository access: <b>All repositories</b> (so it can reach repos it creates).
+    Permissions: <b>Administration</b>, <b>Contents</b> and <b>Pages</b> &mdash; all Read and write.
     Stored only in this browser &mdash; never in the page itself.
   </div>
 </section>
@@ -124,8 +133,9 @@
   <label for="repo">Repository</label>
   <div class="row">
     <select id="repo"></select>
-    <input type="text" id="repoOther" placeholder="other repo" style="display:none">
+    <input type="text" id="repoOther" placeholder="RepoName" autocapitalize="off" autocorrect="off" spellcheck="false" style="display:none">
   </div>
+  <div class="hint" id="repoNote"></div>
   <label for="version">Version</label>
   <input type="text" id="version" placeholder="1.0.0">
   <div class="check">
@@ -138,36 +148,107 @@
   </div>
 </section>
 
+<section>
+  <div class="step">4 &middot; Register</div>
+  <div class="check">
+    <input type="checkbox" id="toGrid" checked>
+    <label for="toGrid" style="margin:0">Add a tile to the Grid</label>
+  </div>
+  <div class="check">
+    <input type="checkbox" id="toStoogle" checked>
+    <label for="toStoogle" style="margin:0">Add an entry to Stoogle</label>
+  </div>
+  <label for="appname">Display name</label>
+  <input type="text" id="appname" placeholder="Triangles">
+  <label for="desc">One-line description (Stoogle)</label>
+  <input type="text" id="desc" placeholder="Solver for triangle-count path puzzles.">
+  <label for="tags">Search tags (Stoogle)</label>
+  <input type="text" id="tags" placeholder="puzzle solver triangles witness grid">
+  <div class="hint">
+    Skipped automatically if the page is already listed. Both files get their patch version bumped.
+  </div>
+</section>
+
 <button class="primary" id="publish" disabled>Publish to index.html</button>
 <div id="log"></div>
 
 <script>
 const OWNER = "S77FFY";
-const REPOS = ["Room46","Kadoosh","DartsNight","BatPhysics","FennMuseum","TheFennJob","Noms","Mechanism","MoraJai","Grid"];
+let REPOS = ["Room46","Kadoosh","DartsNight","BatPhysics","FennMuseum","TheFennJob","Noms","Mechanism","MoraJai","Bloodline","Triangles","Stoogle","Grid"];
+let reposLive = false;          // true once the list has come from GitHub
 const API = "https://api.github.com";
 
 const $ = id => document.getElementById(id);
 let fileText = "", fileName = "";
 
 /* ---------- repo dropdown ---------- */
-REPOS.forEach(r => { const o = document.createElement("option"); o.value = o.textContent = r; $("repo").appendChild(o); });
-const other = document.createElement("option");
-other.value = "__other"; other.textContent = "Other\u2026";
-$("repo").appendChild(other);
-$("repo").addEventListener("change", () => {
-  $("repoOther").style.display = $("repo").value === "__other" ? "block" : "none";
-});
+let wantedRepo = "";            // what the picked file asked for
+
+function fillRepoSelect(){
+  const keep = $("repo").value;
+  $("repo").innerHTML = "";
+  REPOS.slice().sort((a,b) => a.localeCompare(b)).forEach(r => {
+    const o = document.createElement("option"); o.value = o.textContent = r; $("repo").appendChild(o);
+  });
+  const nw = document.createElement("option");
+  nw.value = "__other"; nw.textContent = "\uFF0B New repo\u2026";
+  $("repo").appendChild(nw);
+  if (wantedRepo) selectRepo(wantedRepo);
+  else if (keep && [...$("repo").options].some(o => o.value === keep)) $("repo").value = keep;
+  updateRepoNote();
+}
+function knownRepo(name){
+  return REPOS.find(r => r.toLowerCase() === String(name).toLowerCase()) || "";
+}
+function selectRepo(name){
+  const hit = knownRepo(name);
+  if (hit){ $("repo").value = hit; $("repoOther").style.display = "none"; }
+  else { $("repo").value = "__other"; $("repoOther").style.display = "block"; $("repoOther").value = name; }
+  updateRepoNote();
+}
 function targetRepo(){
   return $("repo").value === "__other" ? $("repoOther").value.trim() : $("repo").value;
 }
+function updateRepoNote(){
+  const note = $("repoNote");
+  if ($("repo").value !== "__other"){ note.textContent = ""; return; }
+  const name = $("repoOther").value.trim();
+  if (!name){ note.textContent = "Type the new repo name \u2014 it must match the file's app-repo."; note.className = "hint"; return; }
+  if (!/^[A-Za-z0-9._-]+$/.test(name)){ note.textContent = "Letters, numbers, dots, dashes and underscores only."; note.className = "hint err"; return; }
+  if (knownRepo(name)){ note.textContent = name + " already exists \u2014 it'll publish into it."; note.className = "hint"; return; }
+  note.textContent = reposLive
+    ? name + " doesn't exist yet \u2014 it'll be created as a public repo with GitHub Pages switched on."
+    : name + " isn't in the saved list \u2014 it'll be created if GitHub doesn't have it.";
+  note.className = "hint warn";
+}
+$("repo").addEventListener("change", () => {
+  $("repoOther").style.display = $("repo").value === "__other" ? "block" : "none";
+  if ($("repo").value === "__other") $("repoOther").focus();
+  updateRepoNote();
+});
+$("repoOther").addEventListener("input", updateRepoNote);
+
+async function loadRepos(){
+  if (!$("token").value.trim()) return;
+  try {
+    const r = await gh("/user/repos?per_page=100&affiliation=owner&sort=pushed");
+    if (!r.ok || !Array.isArray(r.body)) return;
+    const names = r.body.filter(x => !x.archived && x.owner && x.owner.login.toLowerCase() === OWNER.toLowerCase())
+                        .map(x => x.name);
+    if (names.length){ REPOS = names; reposLive = true; fillRepoSelect(); }
+  } catch(e){}
+}
+fillRepoSelect();
 
 /* ---------- token ---------- */
 try {
   const saved = localStorage.getItem("gh_token");
   if (saved) $("token").value = saved;
 } catch(e){}
+let tokenTimer;
 $("token").addEventListener("input", () => {
   if ($("remember").checked) { try { localStorage.setItem("gh_token", $("token").value.trim()); } catch(e){} }
+  clearTimeout(tokenTimer); tokenTimer = setTimeout(loadRepos, 600);
 });
 $("forget").addEventListener("click", () => {
   try { localStorage.removeItem("gh_token"); } catch(e){}
@@ -202,9 +283,10 @@ $("file").addEventListener("change", e => {
     $("d-size").textContent = (f.size / 1024).toFixed(0) + " KB";
     $("detected").classList.add("show");
 
-    if (guess && REPOS.includes(guess)) $("repo").value = guess;
-    else if (guess) { $("repo").value = "__other"; $("repoOther").style.display = "block"; $("repoOther").value = guess; }
+    wantedRepo = guess;
+    if (guess) selectRepo(guess);
     if (ver) $("version").value = ver;
+    if (!$("appname").value) $("appname").value = meta.repo || guess || "";
 
     if (!meta.repo) log("No app-repo meta tag \u2014 check the target repo below before publishing.", "warn");
     $("publish").disabled = false;
@@ -250,6 +332,49 @@ async function gh(path, options){
   try { body = await res.json(); } catch(e){}
   return { ok: res.ok, status: res.status, body: body };
 }
+async function getRepo(repo){
+  const r = await gh("/repos/" + OWNER + "/" + repo);
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error("Cannot read repo (" + r.status + "): " + ((r.body && r.body.message) || ""));
+  return r.body;
+}
+async function createRepo(repo, description){
+  const r = await gh("/user/repos", {
+    method: "POST",
+    body: JSON.stringify({
+      name: repo, description: description || "", private: false, auto_init: true,
+      has_issues: false, has_projects: false, has_wiki: false
+    })
+  });
+  if (r.ok) return r.body;
+  const msg = (r.body && r.body.message) || "";
+  if (r.status === 403 || r.status === 404)
+    throw new Error("Can't create repos with this token (" + r.status + "). Set Repository access to All repositories and Administration to Read and write.");
+  if (r.status === 422)
+    throw new Error("GitHub refused the name " + repo + " (422): " + msg + ((r.body && r.body.errors) ? " \u2014 " + JSON.stringify(r.body.errors) : ""));
+  throw new Error("Create repo failed (" + r.status + "): " + msg);
+}
+async function waitForBranch(repo, branch){
+  for (let i = 0; i < 10; i++){
+    const r = await gh("/repos/" + OWNER + "/" + repo + "/branches/" + branch);
+    if (r.ok) return;
+    await new Promise(res => setTimeout(res, 1500));
+  }
+  throw new Error("New repo's " + branch + " branch didn't appear in time \u2014 try Publish again.");
+}
+async function ensurePages(repo, branch){
+  const g = await gh("/repos/" + OWNER + "/" + repo + "/pages");
+  if (g.ok) return "on";
+  if (g.status === 403) throw new Error("Can't check GitHub Pages (403) \u2014 add Pages: Read and write to the token.");
+  if (g.status !== 404) throw new Error("Pages check failed (" + g.status + ")");
+  const p = await gh("/repos/" + OWNER + "/" + repo + "/pages", {
+    method: "POST",
+    body: JSON.stringify({ source: { branch: branch, path: "/" } })
+  });
+  if (p.ok || p.status === 409) return "enabled";
+  if (p.status === 403) throw new Error("Can't switch on GitHub Pages (403) \u2014 add Pages: Read and write to the token.");
+  throw new Error("Switching on Pages failed (" + p.status + "): " + ((p.body && p.body.message) || ""));
+}
 async function defaultBranch(repo){
   const r = await gh("/repos/" + OWNER + "/" + repo);
   if (!r.ok) throw new Error("Cannot read repo (" + r.status + "): " + ((r.body && r.body.message) || ""));
@@ -271,6 +396,71 @@ async function putFile(repo, path, branch, content, message){
   return sha ? "updated" : "created";
 }
 
+/* ---------- registering on the Grid / in Stoogle ---------- */
+function unb64(b64){
+  const bin = atob(String(b64).replace(/\n/g, ""));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+async function getFile(repo, path, branch){
+  const r = await gh("/repos/" + OWNER + "/" + repo + "/contents/" + path + "?ref=" + branch);
+  if (!r.ok) throw new Error("Cannot read " + repo + "/" + path + " (" + r.status + ")");
+  return { text: unb64(r.body.content), sha: r.body.sha };
+}
+async function putRaw(repo, path, branch, content, message, sha){
+  const payload = { message: message, content: b64(content), branch: branch, sha: sha };
+  const r = await gh("/repos/" + OWNER + "/" + repo + "/contents/" + path, {
+    method: "PUT", body: JSON.stringify(payload)
+  });
+  if (!r.ok) throw new Error(repo + "/" + path + " failed (" + r.status + "): " + ((r.body && r.body.message) || ""));
+}
+function bumpVersion(text){
+  const m = text.match(/name=["\']app-version["\']\s+content=["\'](\d+)\.(\d+)\.(\d+)["\']/i);
+  if (!m) return { text: text, version: null };
+  const next = m[1] + "." + m[2] + "." + (parseInt(m[3], 10) + 1);
+  let out = text.replace(m[0], m[0].replace(m[1] + "." + m[2] + "." + m[3], next));
+  out = out.replace(/>\s*([A-Za-z]+)\s+v\d+\.\d+\.\d+\s*</, ">$1 v" + next + "<");
+  return { text: out, version: next };
+}
+function upsert(src, marker, entry, matchKey){
+  const start = src.indexOf(marker);
+  if (start < 0) throw new Error("Could not find " + marker.trim() + " in the file");
+  const end = src.indexOf("];", start);
+  if (end < 0) throw new Error("Could not find the end of " + marker.trim());
+  const body = src.slice(start + marker.length, end);
+  if (body.indexOf(matchKey) >= 0) return null;            // already listed
+  const lastBrace = body.lastIndexOf("}");
+  if (lastBrace < 0) throw new Error("No existing entries to append to");
+  const at = start + marker.length + lastBrace + 1;
+  return src.slice(0, at) + ",\n" + entry + src.slice(at);
+}
+function esc(str){ return String(str).replace(/"/g, "'"); }
+
+async function registerGrid(name, url){
+  const branch = await defaultBranch("Grid");
+  const f = await getFile("Grid", "index.html", branch);
+  const entry = '  { name: "' + esc(name) + '",  url: "' + url + '" }';
+  const added = upsert(f.text, "const LINKS = [", entry, url);
+  if (!added){ log("Grid already lists " + name + " \u2014 left alone.", "dim"); return; }
+  const slots = (added.match(/\{\s*name:/g) || []).length;
+  if (slots > 44) log("Grid now holds " + slots + " links \u2014 45 squares minus the coffee tile. Nearly full.", "warn");
+  const v = bumpVersion(added);
+  await putRaw("Grid", "index.html", branch, v.text, "Add " + name + " to the Grid" + (v.version ? " (v" + v.version + ")" : ""), f.sha);
+  log("Grid tile added" + (v.version ? ", bumped to v" + v.version : "") + ".", "ok");
+}
+
+async function registerStoogle(name, url, desc, tags){
+  const branch = await defaultBranch("Stoogle");
+  const f = await getFile("Stoogle", "index.html", branch);
+  const entry = '  { name:"' + esc(name) + '",  url:"' + url + '",\n' +
+                '    desc:"' + esc(desc || name + ".") + '",\n' +
+                '    tags:"' + esc(tags || name.toLowerCase()) + '" }';
+  const added = upsert(f.text, "const INDEX = [", entry, url);
+  if (!added){ log("Stoogle already indexes " + name + " \u2014 left alone.", "dim"); return; }
+  const v = bumpVersion(added);
+  await putRaw("Stoogle", "index.html", branch, v.text, "Index " + name + " in Stoogle" + (v.version ? " (v" + v.version + ")" : ""), f.sha);
+  log("Stoogle entry added" + (v.version ? ", bumped to v" + v.version : "") + ".", "ok");
+}
+
 /* ---------- stamping ---------- */
 function stampMeta(html, repo, version){
   let out = html;
@@ -282,19 +472,20 @@ function stampMeta(html, repo, version){
 }
 
 /* ---------- verify ---------- */
-async function verify(repo, version){
+async function verify(repo, version, tries){
+  tries = tries || 5;
   const url = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/index.html?cb=" + Date.now();
-  for (let i = 1; i <= 5; i++){
+  for (let i = 1; i <= tries; i++){
     await new Promise(r => setTimeout(r, i === 1 ? 8000 : 12000));
     try {
       const res = await fetch(url, { cache: "no-store" });
       if (res.ok){
         const live = readMeta(await res.text()).version;
         if (live && version && live === version){ log("Verified live: " + repo + " v" + live, "ok"); return; }
-        if (live) log("Live version is " + live + " (attempt " + i + "/5)\u2026", "dim");
-        else log("Live page has no version meta (attempt " + i + "/5)\u2026", "dim");
-      }
-    } catch(e){ log("Check " + i + "/5 blocked or offline\u2026", "dim"); }
+        if (live) log("Live version is " + live + " (attempt " + i + "/" + tries + ")\u2026", "dim");
+        else log("Live page has no version meta (attempt " + i + "/" + tries + ")\u2026", "dim");
+      } else log("Not live yet (" + res.status + ", attempt " + i + "/" + tries + ")\u2026", "dim");
+    } catch(e){ log("Check " + i + "/" + tries + " blocked or offline\u2026", "dim"); }
   }
   log("Could not confirm the live version \u2014 Pages can take a minute. Open it and check the stamp.", "warn");
 }
@@ -308,6 +499,7 @@ $("publish").addEventListener("click", async () => {
   $("log").innerHTML = "";
   if (!token){ log("Add your token first.", "err"); return; }
   if (!repo){ log("Pick a target repo.", "err"); return; }
+  if (!/^[A-Za-z0-9._-]+$/.test(repo)){ log("Repo names can only use letters, numbers, dots, dashes and underscores.", "err"); return; }
   if (!fileText){ log("Choose a file.", "err"); return; }
 
   const meta = readMeta(fileText);
@@ -322,7 +514,24 @@ $("publish").addEventListener("click", async () => {
   $("publish").disabled = true;
   try {
     log("Reading " + OWNER + "/" + repo + "\u2026", "dim");
-    const branch = await defaultBranch(repo);
+    let info = await getRepo(repo);
+    let created = false;
+
+    if (!info){
+      if (!confirm(OWNER + "/" + repo + " doesn't exist.\n\nCreate it as a public repo with GitHub Pages switched on, then publish?")){
+        log("Cancelled \u2014 nothing was created.", "dim");
+        return;
+      }
+      log("Creating " + OWNER + "/" + repo + "\u2026", "dim");
+      info = await createRepo(repo, $("desc").value.trim());
+      created = true;
+      log("Repo created.", "ok");
+      await waitForBranch(repo, info.default_branch || "main");
+      if (!knownRepo(repo)) REPOS.push(repo);
+      wantedRepo = repo; fillRepoSelect();
+    }
+
+    const branch = info.default_branch || "main";
     log("Branch: " + branch, "dim");
 
     const msg = "Publish " + repo + (version ? " v" + version : "");
@@ -337,16 +546,37 @@ $("publish").addEventListener("click", async () => {
       log("No version given \u2014 skipped the archive copy.", "warn");
     }
 
+    try {
+      const pg = await ensurePages(repo, branch);
+      if (pg === "enabled") log("GitHub Pages switched on (" + branch + " / root).", "ok");
+    } catch(e){
+      log(e.message + (created ? " The site won't be live until Pages is on: repo Settings \u2192 Pages \u2192 " + branch + " / root." : ""), "warn");
+    }
+
+    const pageUrl = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/index.html";
+    const name = $("appname").value.trim() || repo;
+
+    if ($("toGrid").checked && repo !== "Grid"){
+      try { await registerGrid(name, pageUrl); }
+      catch(e){ log("Grid registration skipped: " + e.message, "warn"); }
+    }
+    if ($("toStoogle").checked && repo !== "Stoogle"){
+      try { await registerStoogle(name, pageUrl, $("desc").value.trim(), $("tags").value.trim()); }
+      catch(e){ log("Stoogle registration skipped: " + e.message, "warn"); }
+    }
+
     const live = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/";
     log('Done. <a href="' + live + '" target="_blank" rel="noopener">Open ' + repo + '</a>', "ok");
-    log("Checking the live page\u2026", "dim");
-    await verify(repo, version);
+    if (created) log("New sites usually take a minute or two for the first build\u2026", "dim");
+    else log("Checking the live page\u2026", "dim");
+    await verify(repo, version, created ? 12 : 5);
   } catch(err){
     log(String(err.message || err), "err");
   } finally {
     $("publish").disabled = false;
   }
 });
+loadRepos();
 </script>
 </body>
 </html>

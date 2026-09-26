@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Grid">
+<meta name="app-repo" content="Grid">
+<meta name="app-version" content="1.0.8">
+<title>Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" crossorigin="anonymous">
+<style>
+  :root{
+    --bg:#000;
+    --tile:#111214;
+    --neon:#35b6f2;
+    --neon-soft:rgba(53,182,242,.55);
+    --neon-dim:rgba(53,182,242,.16);
+    --ink:#dff4ff;
+    --muted:#6f8894;
+    --gold:#ffd700;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+
+  html,body{height:100%;background:var(--bg);overflow:hidden}
+
+  body{
+    font-family:'Share Tech Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
+    height:100dvh;
+    padding:calc(env(safe-area-inset-top) + 6px) calc(env(safe-area-inset-right) + 6px)
+            calc(env(safe-area-inset-bottom) + 6px) calc(env(safe-area-inset-left) + 6px);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    grid-template-rows:repeat(9,1fr);
+    /* width, height and gap are set by fitGrid() */
+  }
+
+  .tile{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid var(--neon);
+    border-radius:3px;
+    background:var(--tile);
+    text-decoration:none;
+    color:var(--ink);
+    padding:6px;
+    overflow:hidden;
+    box-shadow:0 0 6px var(--neon-soft), 0 0 18px var(--neon-soft), inset 0 0 10px rgba(53,182,242,.12);
+    transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+  }
+
+  .tile .label{
+    display:block;
+    width:100%;
+    text-align:center;
+    font-weight:700;
+    line-height:1.2;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    color:#fff;
+    white-space:normal;
+    overflow-wrap:break-word;
+    word-break:normal;
+    hyphens:none;
+    text-shadow:0 0 8px rgba(53,182,242,.45);
+  }
+
+  a.tile:hover,
+  a.tile:focus-visible{
+    transform:translateY(-2px);
+    border-color:#7fd8ff;
+    box-shadow:0 0 10px #7fd8ff, 0 0 30px var(--neon-soft), inset 0 0 16px rgba(53,182,242,.22);
+    outline:none;
+  }
+  a.tile:focus-visible{border-color:#fff}
+  a.tile:active{transform:translateY(0)}
+
+  /* Named slot with no link yet */
+  .tile.pending{
+    border-style:dashed;
+    border-color:var(--neon-soft);
+    box-shadow:0 0 4px var(--neon-dim), inset 0 0 8px rgba(53,182,242,.06);
+    color:var(--muted);
+  }
+  .tile.pending .label{text-shadow:none;font-weight:400}
+
+  /* Centre square: coffee */
+  .tile.coffee{
+    border-color:var(--gold);
+    box-shadow:0 0 6px rgba(255,215,0,.55), 0 0 18px rgba(255,215,0,.4), inset 0 0 10px rgba(255,215,0,.1);
+  }
+  .tile.coffee .label{color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,.5)}
+  .tile.coffee .cup{display:block;line-height:1;margin-bottom:4px;font-size:2.4em}
+  a.tile.coffee:hover,
+  a.tile.coffee:focus-visible{
+    border-color:#ffe75e;
+    box-shadow:0 0 10px #ffe75e, 0 0 30px rgba(255,215,0,.5), inset 0 0 16px rgba(255,215,0,.2);
+  }
+
+  /* Unused slots */
+  .tile.empty{
+    border-color:var(--neon-dim);
+    box-shadow:none;
+    background:#0b0c0d;
+  }
+
+  #stamp{
+    position:fixed;
+    right:calc(env(safe-area-inset-right) + 6px);
+    bottom:calc(env(safe-area-inset-bottom) + 3px);
+    font-size:8px; letter-spacing:1px; color:var(--neon);
+    opacity:.3; pointer-events:none; user-select:none;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .tile{transition:none}
+    a.tile:hover,a.tile:focus-visible{transform:none}
+  }
+</style>
+</head>
+<body>
+
+<main class="grid" id="grid" aria-label="Launcher"></main>
+<div id="stamp">GRID v1.0.8</div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   ADD YOUR PAGES HERE
+   Each entry: { name: "Shown on the tile", url: "https://..." }
+   Leave url as "" to reserve the slot until the link exists.
+   Add a line and it fills the next square. Max 45.
+   ───────────────────────────────────────────────────────────── */
+const LINKS = [
+  { name: "Room 46",      url: "https://small-boat-e0d9.ben-stiff.workers.dev" },
+  { name: "Maze",         url: "https://s77ffy.github.io/Room46/index.html" },
+  { name: "Kadoosh",      url: "https://s77ffy.github.io/Kadoosh/index.html" },
+  { name: "Darts Night",  url: "https://s77ffy.github.io/DartsNight/index.html" },
+  { name: "Bat Physics",  url: "https://s77ffy.github.io/BatPhysics/index.html" },
+  { name: "Darts Scorer", url: "https://s77ffy.github.io/Grid/darts-scorer-v1.0.9.html" },
+  { name: "Fenn Museum",  url: "https://s77ffy.github.io/FennMuseum/index.html" },
+  { name: "The Fenn Job", url: "https://s77ffy.github.io/TheFennJob/index.html" },
+  { name: "Noms",         url: "https://s77ffy.github.io/Noms/index.html" },
+  { name: "Mechanism",    url: "https://s77ffy.github.io/Mechanism/index.html" },
+  { name: "Mora Jai",     url: "https://s77ffy.github.io/MoraJai/index.html" },
+  { name: "Bloodline",    url: "https://s77ffy.github.io/Bloodline/index.html" },
+  { name: "Torii Run",    url: "https://s77ffy.github.io/Grid/torri-run.html" },
+  { name: "FiveaSide",    url: "https://five-aside-mate.lovable.app" },
+  { name: "NeonFit",      url:  "https://s77ffy.github.io/Neonfit/index.html" },
+  { name: "Scabby F!",      url:  "https://s77ffy.github.io/ScabbyFanny/index.html" },
+  { name: "Stoogle",      url: "https://s77ffy.github.io/Stoogle/index.html" },
+  { name: "get-the-gold",  url: "https://s77ffy.github.io/get-the-gold/index.html" },
+  { name: "Virutris",  url: "https://s77ffy.github.io/Virutris/index.html" }
+];
+
+/* Keep same-site links inside the home-screen app instead of handing
+   them to Safari, so each game opens fullscreen too. */
+if (("standalone" in navigator) && navigator.standalone){
+  document.addEventListener("click", function(e){
+    const a = e.target.closest ? e.target.closest("a") : null;
+    if (!a || !a.href) return;
+    if (a.target === "_blank") return;                                          // deliberate trips out
+    if (a.href.indexOf(location.protocol + "//" + location.host) !== 0) return; // other sites
+    e.preventDefault();
+    location.assign(a.href);
+  }, false);
+}
+
+const COLS = 5, ROWS = 9, SLOTS = COLS * ROWS;
+const CENTRE = Math.floor(SLOTS / 2);          // square 23 of 45 — dead centre
+const COFFEE_URL = "https://buymeacoffee.com/benstiffi";
+const grid = document.getElementById("grid");
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+for (let i = 0; i < SLOTS; i++){
+  if (i === CENTRE){
+    const c = document.createElement("a");
+    c.className = "tile coffee";
+    c.href = COFFEE_URL;
+    c.target = "_blank";
+    c.rel = "noopener";
+    c.dataset.gc = "coffee";
+    c.innerHTML = '<span class="label"><span class="cup">&#9749;</span>Buy me a coffee</span>';
+    grid.appendChild(c);
+    continue;
+  }
+  const item = LINKS[i >= CENTRE ? i - 1 : i];
+  let el;
+  if (item && item.url){
+    el = document.createElement("a");
+    el.className = "tile";
+    el.href = item.url;
+    el.dataset.gc = item.name;
+  } else if (item){
+    el = document.createElement("div");
+    el.className = "tile pending";
+    el.title = "Link not added yet";
+  } else {
+    el = document.createElement("div");
+    el.className = "tile empty";
+    el.setAttribute("aria-hidden","true");
+  }
+  if (item) el.innerHTML = '<span class="label">' + escapeHtml(item.name) + '</span>';
+  grid.appendChild(el);
+}
+
+/* Size the 5 x 9 grid of squares to the largest that fits the screen. */
+function fitGrid(){
+  const cs = getComputedStyle(document.body);
+  const availW = document.documentElement.clientWidth
+    - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const availH = (window.visualViewport ? window.visualViewport.height : window.innerHeight)
+    - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+
+  const R = 0.12;                       // gap as a fraction of one square
+  const cell = Math.min(
+    availW / (COLS + R * (COLS - 1)),
+    availH / (ROWS + R * (ROWS - 1))
+  );
+  const gap = Math.max(3, Math.min(14, cell * R));
+  const size = Math.min(
+    (availW - gap * (COLS - 1)) / COLS,
+    (availH - gap * (ROWS - 1)) / ROWS
+  );
+
+  grid.style.gap    = gap + "px";
+  grid.style.width  = (size * COLS + gap * (COLS - 1)) + "px";
+  grid.style.height = (size * ROWS + gap * (ROWS - 1)) + "px";
+  return size;
+}
+
+/* Room 46 rule: one size for every label, scaled to the square.
+   Equivalent to clamp(7px, 1.8vw, 11px) when the grid is full-width.
+   The loop afterwards only shrinks a label that still overflows. */
+function fitLabels(cell){
+  const base = Math.max(6, Math.min(13, cell * 0.105));
+
+  document.querySelectorAll(".tile .label").forEach(label => {
+    const tile = label.parentElement;
+    const st = getComputedStyle(tile);
+    const maxW = tile.clientWidth  - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight);
+    const maxH = tile.clientHeight - parseFloat(st.paddingTop)  - parseFloat(st.paddingBottom);
+
+    let size = base;
+    label.style.fontSize = size + "px";
+    while (size > 5 && (label.scrollWidth > maxW + 0.5 || label.scrollHeight > maxH + 0.5)){
+      size -= 0.25;
+      label.style.fontSize = size + "px";
+    }
+  });
+}
+
+function relayout(){ fitLabels(fitGrid()); }
+
+relayout();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
+
+let t;
+addEventListener("resize", () => { clearTimeout(t); t = setTimeout(relayout, 80); });
+addEventListener("orientationchange", () => setTimeout(relayout, 250));
+if (window.visualViewport) window.visualViewport.addEventListener("resize", () => {
+  clearTimeout(t); t = setTimeout(relayout, 80);
+});
+
+/* Which tiles get tapped — shows in GoatCounter as events "tile/<name>". */
+grid.addEventListener("click", function(e){
+  const a = e.target.closest ? e.target.closest("a[data-gc]") : null;
+  if (a && window.goatcounter && window.goatcounter.count)
+    window.goatcounter.count({ path: "tile/" + a.dataset.gc, title: a.dataset.gc, event: true });
+}, true);
+</script>
+
+<script data-goatcounter="https://s77ffy.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

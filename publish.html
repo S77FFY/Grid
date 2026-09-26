@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Publish">
 <meta name="app-repo" content="Grid">
-<meta name="app-version" content="1.1.1">
+<meta name="app-version" content="1.1.4">
 <title>Publish</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -78,11 +78,34 @@
   .kv span:first-child{color:var(--muted)}
   .kv span:last-child{color:#fff;text-align:right;word-break:break-all}
 
-  #log{
-    margin-top:12px; font-size:12px; white-space:pre-wrap; word-break:break-word;
-    max-height:40vh; overflow-y:auto;
+  /* terminal-style log */
+  .term{
+    margin-top:14px; border:1px solid #2a3a2f; border-radius:6px; overflow:hidden;
+    background:#050805; box-shadow:0 0 14px rgba(0,255,136,.10), inset 0 0 30px rgba(0,0,0,.8);
   }
-  .line{padding:2px 0}
+  .term-bar{
+    display:flex; align-items:center; gap:6px; padding:7px 10px;
+    background:#121614; border-bottom:1px solid #1f2a23; font-size:11px; color:var(--muted);
+  }
+  .term-bar i{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .term-bar i:nth-child(1){background:#ff5f57} .term-bar i:nth-child(2){background:#febc2e} .term-bar i:nth-child(3){background:#28c840}
+  .term-bar span{margin-left:6px;letter-spacing:1px}
+  #log{
+    padding:10px 12px; font-size:12px; white-space:pre-wrap; word-break:break-word;
+    max-height:40vh; overflow-y:auto; color:#b8f5cf; min-height:44px;
+    text-shadow:0 0 4px rgba(0,255,136,.25);
+  }
+  .line{padding:2px 0 2px 16px; text-indent:-16px}
+  .line::before{content:"$ "; color:var(--green); opacity:.7}
+  .cursor{display:inline-block;width:7px;height:13px;background:var(--green);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* stats */
+  .stats{display:flex;gap:8px;margin-bottom:10px}
+  .stat{flex:1;text-align:center;border:1px solid rgba(53,182,242,.25);border-radius:3px;padding:10px 4px;background:#000}
+  .stat b{display:block;font-family:'Orbitron',sans-serif;font-size:18px;color:#fff;text-shadow:0 0 8px var(--neon)}
+  .stat small{font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+  a.button{display:block;text-align:center;text-decoration:none;padding:12px;margin-top:10px;border:1px solid var(--neon);border-radius:3px;letter-spacing:2px;text-transform:uppercase}
   .ok{color:var(--green)} .err{color:var(--red)} .warn{color:var(--gold)} .dim{color:var(--muted)}
   a{color:var(--neon)}
   #stamp{
@@ -98,7 +121,7 @@
 <body>
 
 <h1>PUBLISHER</h1>
-<div id="stamp">PUBLISH v1.1.1</div>
+<div id="stamp">PUBLISH v1.1.4</div>
 <div class="sub">github.com/S77FFY &rarr; index.html</div>
 
 <section>
@@ -146,16 +169,20 @@
     <input type="checkbox" id="stamp" checked>
     <label for="stamp" style="margin:0">Add app-repo / app-version meta tags if missing</label>
   </div>
+  <div class="check">
+    <input type="checkbox" id="counter" checked>
+    <label for="counter" style="margin:0">Add GoatCounter visit counter if missing</label>
+  </div>
 </section>
 
 <section>
   <div class="step">4 &middot; Register</div>
   <div class="check">
-    <input type="checkbox" id="toGrid" checked>
+    <input type="checkbox" id="toGrid">
     <label for="toGrid" style="margin:0">Add a tile to the Grid</label>
   </div>
   <div class="check">
-    <input type="checkbox" id="toStoogle" checked>
+    <input type="checkbox" id="toStoogle">
     <label for="toStoogle" style="margin:0">Add an entry to Stoogle</label>
   </div>
   <label for="appname">Display name</label>
@@ -170,7 +197,22 @@
 </section>
 
 <button class="primary" id="publish" disabled>Publish to index.html</button>
-<div id="log"></div>
+<div class="term">
+  <div class="term-bar"><i></i><i></i><i></i><span>publish.log</span></div>
+  <div id="log"><div class="line dim" id="ready">ready <span class="cursor"></span></div></div>
+</div>
+
+<section style="margin-top:14px">
+  <div class="step">5 &middot; Stats</div>
+  <div class="stats">
+    <div class="stat"><b id="st-today">&ndash;</b><small>Today</small></div>
+    <div class="stat"><b id="st-week">&ndash;</b><small>7 days</small></div>
+    <div class="stat"><b id="st-all">&ndash;</b><small>All time</small></div>
+  </div>
+  <div id="st-pages"></div>
+  <div class="hint" id="st-note">Visits across every page with the counter.</div>
+  <a class="button" href="https://s77ffy.goatcounter.com" target="_blank" rel="noopener">Open full stats &#8599;</a>
+</section>
 
 <script>
 const OWNER = "S77FFY";
@@ -258,6 +300,7 @@ $("forget").addEventListener("click", () => {
 
 /* ---------- logging ---------- */
 function log(msg, cls){
+  const r = $("ready"); if (r) r.remove();
   const d = document.createElement("div");
   d.className = "line " + (cls || "");
   d.innerHTML = msg;
@@ -471,6 +514,37 @@ function stampMeta(html, repo, version){
   return out;
 }
 
+/* ---------- visit counter ---------- */
+const COUNTER_JS = [
+  '<script>',
+  '/* GoatCounter visit counter (added by Publisher). Counts only on the live site. No cookies. */',
+  '(function(){',
+  '  var GC = "https://s77ffy.goatcounter.com/count";',
+  '  if (location.hostname !== "s77ffy.github.io") { window.gcEvent = function(){}; return; }',
+  '  function send(q){',
+  '    var u = GC + "?" + Object.keys(q).map(function(k){ return k + "=" + encodeURIComponent(q[k]); }).join("&")',
+  '              + "&rnd=" + Math.random().toString(36).slice(2);',
+  '    if (navigator.sendBeacon && navigator.sendBeacon(u)) return;',
+  '    (new Image()).src = u;',
+  '  }',
+  '  window.gcEvent = function(name){ send({ p: name, t: name, e: "true" }); };',
+  '  send({',
+  '    p: location.pathname.replace(/index\\.html$/, ""),',
+  '    t: document.title,',
+  '    r: document.referrer,',
+  '    s: [screen.width, screen.height, window.devicePixelRatio || 1].join(",")',
+  '  });',
+  '})();',
+  '<\/script>'
+].join("\n");
+
+function hasCounter(html){ return /goatcounter\.com\/count/i.test(html); }
+function addCounter(html){
+  const i = html.toLowerCase().lastIndexOf("</body>");
+  if (i < 0) return html + "\n" + COUNTER_JS + "\n";
+  return html.slice(0, i) + COUNTER_JS + "\n" + html.slice(i);
+}
+
 /* ---------- verify ---------- */
 async function verify(repo, version, tries){
   tries = tries || 5;
@@ -510,6 +584,10 @@ $("publish").addEventListener("click", async () => {
 
   let content = fileText;
   if ($("stamp").checked) content = stampMeta(content, repo, version);
+  if ($("counter").checked){
+    if (hasCounter(content)) log("Visit counter already in the file.", "dim");
+    else { content = addCounter(content); log("Visit counter added.", "ok"); }
+  }
 
   $("publish").disabled = true;
   try {
@@ -576,7 +654,41 @@ $("publish").addEventListener("click", async () => {
     $("publish").disabled = false;
   }
 });
-loadRepos();
+const reposReady = loadRepos();
+
+/* ---------- stats (GoatCounter public counter) ---------- */
+const GC = "https://s77ffy.goatcounter.com/counter/";
+function isoDay(d){ return d.toISOString().slice(0,10); }
+async function gcCount(path, start){
+  const q = start ? "?start=" + start : "";
+  const res = await fetch(GC + encodeURIComponent(path) + ".json" + q, { cache: "no-store" });
+  if (res.status === 404) return 0;               // no visits yet
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const j = await res.json();
+  return parseInt(String(j.count).replace(/[^0-9]/g, ""), 10) || 0;
+}
+async function loadStats(){
+  const today = isoDay(new Date());
+  const weekAgo = isoDay(new Date(Date.now() - 6 * 864e5));
+  try {
+    const [t, w, a] = await Promise.all([gcCount("TOTAL", today), gcCount("TOTAL", weekAgo), gcCount("TOTAL")]);
+    $("st-today").textContent = t.toLocaleString();
+    $("st-week").textContent  = w.toLocaleString();
+    $("st-all").textContent   = a.toLocaleString();
+  } catch(e){
+    $("st-note").innerHTML = 'Couldn\u2019t load counts. In GoatCounter <b>Settings</b>, tick <b>Allow adding visitor counts on your website</b>. The full stats link still works.';
+    $("st-note").className = "hint warn";
+    return;
+  }
+  const extra = ["Neonfit","ScabbyFanny","get-the-gold"];
+  const list = [...new Set(REPOS.concat(extra))];
+  const rows = await Promise.all(list.map(r => gcCount("/" + r + "/").then(n => [r, n]).catch(() => [r, 0])));
+  const hit = rows.filter(r => r[1] > 0).sort((a,b) => b[1] - a[1]);
+  $("st-pages").innerHTML = hit.map(r =>
+    '<div class="kv"><span>' + r[0] + '</span><span>' + r[1].toLocaleString() + '</span></div>').join("");
+  if (hit.length) $("st-note").textContent = "All-time visits per project. Only pages with the counter show up.";
+}
+reposReady.finally(loadStats);
 </script>
 </body>
 </html>

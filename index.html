@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Grid">
 <meta name="app-repo" content="Grid">
-<meta name="app-version" content="1.0.5">
+<meta name="app-version" content="1.0.6">
 <title>Grid</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -138,7 +138,7 @@
 <body>
 
 <main class="grid" id="grid" aria-label="Launcher"></main>
-<div id="stamp">GRID v1.0.5</div>
+<div id="stamp">GRID v1.0.6</div>
 
 <script>
 /* ─────────────────────────────────────────────────────────────
@@ -197,6 +197,7 @@ for (let i = 0; i < SLOTS; i++){
     c.href = COFFEE_URL;
     c.target = "_blank";
     c.rel = "noopener";
+    c.dataset.gc = "coffee";
     c.innerHTML = '<span class="label"><span class="cup">&#9749;</span>Buy me a coffee</span>';
     grid.appendChild(c);
     continue;
@@ -207,6 +208,7 @@ for (let i = 0; i < SLOTS; i++){
     el = document.createElement("a");
     el.className = "tile";
     el.href = item.url;
+    el.dataset.gc = item.name;
   } else if (item){
     el = document.createElement("div");
     el.className = "tile pending";
@@ -277,6 +279,35 @@ addEventListener("orientationchange", () => setTimeout(relayout, 250));
 if (window.visualViewport) window.visualViewport.addEventListener("resize", () => {
   clearTimeout(t); t = setTimeout(relayout, 80);
 });
+
+/* Which tiles get tapped — shows in GoatCounter as events "tile/<name>". */
+grid.addEventListener("click", function(e){
+  const a = e.target.closest ? e.target.closest("a[data-gc]") : null;
+  if (a && window.gcEvent) window.gcEvent("tile/" + a.dataset.gc);
+}, true);
+</script>
+
+<script>
+/* ── GoatCounter: zero-dependency visit counter ─────────────────
+   Same block goes in every project. Counts only on the live site,
+   not local previews. No cookies, nothing stored on the device.  */
+(function(){
+  var GC = "https://s77ffy.goatcounter.com/count";
+  if (location.hostname !== "s77ffy.github.io") { window.gcEvent = function(){}; return; }
+  function send(q){
+    var u = GC + "?" + Object.keys(q).map(function(k){ return k + "=" + encodeURIComponent(q[k]); }).join("&")
+              + "&rnd=" + Math.random().toString(36).slice(2);
+    if (navigator.sendBeacon && navigator.sendBeacon(u)) return;
+    (new Image()).src = u;
+  }
+  window.gcEvent = function(name){ send({ p: name, t: name, e: "true" }); };
+  send({
+    p: location.pathname.replace(/index\.html$/, ""),
+    t: document.title,
+    r: document.referrer,
+    s: [screen.width, screen.height, window.devicePixelRatio || 1].join(",")
+  });
+})();
 </script>
 </body>
 </html>

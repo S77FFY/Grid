@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Publish">
 <meta name="app-repo" content="Grid">
-<meta name="app-version" content="1.1.4">
+<meta name="app-version" content="1.1.5">
 <title>Publish</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,7 +121,7 @@
 <body>
 
 <h1>PUBLISHER</h1>
-<div id="stamp">PUBLISH v1.1.4</div>
+<div id="stamp">PUBLISH v1.1.5</div>
 <div class="sub">github.com/S77FFY &rarr; index.html</div>
 
 <section>
@@ -171,7 +171,7 @@
   </div>
   <div class="check">
     <input type="checkbox" id="counter" checked>
-    <label for="counter" style="margin:0">Add GoatCounter visit counter if missing</label>
+    <label for="counter" style="margin:0">Add GoatCounter script if missing</label>
   </div>
 </section>
 
@@ -515,34 +515,15 @@ function stampMeta(html, repo, version){
 }
 
 /* ---------- visit counter ---------- */
-const COUNTER_JS = [
-  '<script>',
-  '/* GoatCounter visit counter (added by Publisher). Counts only on the live site. No cookies. */',
-  '(function(){',
-  '  var GC = "https://s77ffy.goatcounter.com/count";',
-  '  if (location.hostname !== "s77ffy.github.io") { window.gcEvent = function(){}; return; }',
-  '  function send(q){',
-  '    var u = GC + "?" + Object.keys(q).map(function(k){ return k + "=" + encodeURIComponent(q[k]); }).join("&")',
-  '              + "&rnd=" + Math.random().toString(36).slice(2);',
-  '    if (navigator.sendBeacon && navigator.sendBeacon(u)) return;',
-  '    (new Image()).src = u;',
-  '  }',
-  '  window.gcEvent = function(name){ send({ p: name, t: name, e: "true" }); };',
-  '  send({',
-  '    p: location.pathname.replace(/index\\.html$/, ""),',
-  '    t: document.title,',
-  '    r: document.referrer,',
-  '    s: [screen.width, screen.height, window.devicePixelRatio || 1].join(",")',
-  '  });',
-  '})();',
-  '<\/script>'
-].join("\n");
+const COUNTER_TAG = '<script data-goatcounter="https://s77ffy.goatcounter.com/count"\n        async src="//gc.zgo.at/count.js"><\/script>';
+const OLD_COUNTER = /<script>\s*\/\* GoatCounter visit counter \(added by Publisher\)[\s\S]*?<\/script>\s*/i;
 
-function hasCounter(html){ return /goatcounter\.com\/count/i.test(html); }
+function hasCounter(html){ return /gc\.zgo\.at\/count\.js/i.test(html); }
 function addCounter(html){
+  html = html.replace(OLD_COUNTER, "");                 // swap out the earlier home-made version
   const i = html.toLowerCase().lastIndexOf("</body>");
-  if (i < 0) return html + "\n" + COUNTER_JS + "\n";
-  return html.slice(0, i) + COUNTER_JS + "\n" + html.slice(i);
+  if (i < 0) return html + "\n" + COUNTER_TAG + "\n";
+  return html.slice(0, i) + COUNTER_TAG + "\n" + html.slice(i);
 }
 
 /* ---------- verify ---------- */

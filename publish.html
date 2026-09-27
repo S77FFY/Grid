@@ -7,7 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Publish">
 <meta name="app-repo" content="Grid">
-<meta name="app-version" content="1.1.5">
+<meta name="app-version" content="1.1.6">
+<meta name="app-file" content="publish.html">
 <title>Publish</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,7 +122,7 @@
 <body>
 
 <h1>PUBLISHER</h1>
-<div id="stamp">PUBLISH v1.1.5</div>
+<div id="stamp">PUBLISH v1.1.6</div>
 <div class="sub">github.com/S77FFY &rarr; index.html</div>
 
 <section>
@@ -159,6 +160,9 @@
     <input type="text" id="repoOther" placeholder="RepoName" autocapitalize="off" autocorrect="off" spellcheck="false" style="display:none">
   </div>
   <div class="hint" id="repoNote"></div>
+  <label for="savepath">Save as (file in the repo)</label>
+  <input type="text" id="savepath" value="index.html" autocapitalize="off" autocorrect="off" spellcheck="false">
+  <div class="hint" id="pathNote">index.html is the page people land on.</div>
   <label for="version">Version</label>
   <input type="text" id="version" placeholder="1.0.0">
   <div class="check">
@@ -196,7 +200,7 @@
   </div>
 </section>
 
-<button class="primary" id="publish" disabled>Publish to index.html</button>
+<button class="primary" id="publish" disabled>Publish to <span id="btnPath">index.html</span></button>
 <div class="term">
   <div class="term-bar"><i></i><i></i><i></i><span>publish.log</span></div>
   <div id="log"><div class="line dim" id="ready">ready <span class="cursor"></span></div></div>
@@ -331,11 +335,30 @@ $("file").addEventListener("change", e => {
     if (ver) $("version").value = ver;
     if (!$("appname").value) $("appname").value = meta.repo || guess || "";
 
+    setSavePath(meta.file || (/^publish/i.test(f.name) || /^publish$/i.test(meta.title) ? "publish.html" : "index.html"));
+
     if (!meta.repo) log("No app-repo meta tag \u2014 check the target repo below before publishing.", "warn");
     $("publish").disabled = false;
   };
   r.readAsText(f);
 });
+
+function cleanPath(p){
+  p = String(p || "").trim().replace(/^\/+/, "");
+  if (!p) p = "index.html";
+  if (!/\.html?$/i.test(p)) p += ".html";
+  return p;
+}
+function savePath(){ return cleanPath($("savepath").value); }
+function setSavePath(p){ $("savepath").value = cleanPath(p); updatePathNote(); }
+function updatePathNote(){
+  const p = savePath();
+  $("btnPath").textContent = p;
+  const n = $("pathNote");
+  if (p.toLowerCase() === "index.html"){ n.textContent = "index.html is the page people land on."; n.className = "hint"; }
+  else { n.textContent = "Saved alongside the main page \u2014 index.html is left alone."; n.className = "hint warn"; }
+}
+$("savepath").addEventListener("input", updatePathNote);
 
 function readMeta(html){
   const grab = name => {
@@ -343,7 +366,8 @@ function readMeta(html){
            || html.match(new RegExp('<meta[^>]+content=["\']([^"\']*)["\'][^>]*name=["\']' + name + '["\']', "i"));
     return m ? m[1].trim() : "";
   };
-  return { repo: grab("app-repo"), version: grab("app-version") };
+  const t = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+  return { repo: grab("app-repo"), version: grab("app-version"), file: grab("app-file"), title: t ? t[1].trim() : "" };
 }
 function guessRepoFromName(n){
   const base = n.replace(/\.html?$/i, "").replace(/[-_]?v?\d+(\.\d+)*$/i, "").replace(/[-_]/g, "");
@@ -527,9 +551,9 @@ function addCounter(html){
 }
 
 /* ---------- verify ---------- */
-async function verify(repo, version, tries){
+async function verify(repo, version, tries, path){
   tries = tries || 5;
-  const url = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/index.html?cb=" + Date.now();
+  const url = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/" + (path || "index.html") + "?cb=" + Date.now();
   for (let i = 1; i <= tries; i++){
     await new Promise(r => setTimeout(r, i === 1 ? 8000 : 12000));
     try {
@@ -593,12 +617,31 @@ $("publish").addEventListener("click", async () => {
     const branch = info.default_branch || "main";
     log("Branch: " + branch, "dim");
 
-    const msg = "Publish " + repo + (version ? " v" + version : "");
-    const r1 = await putFile(repo, "index.html", branch, content, msg);
-    log("index.html " + r1 + ".", "ok");
+    const target = savePath();
+    const isIndex = target.toLowerCase() === "index.html";
+
+    /* Guard: don't let a different page replace the landing page by mistake. */
+    if (isIndex && !created){
+      try {
+        const cur = readMeta((await getFile(repo, "index.html", branch)).text);
+        const neu = readMeta(content);
+        if (cur.title && neu.title && cur.title.toLowerCase() !== neu.title.toLowerCase()){
+          if (!confirm(repo + "/index.html is currently \u201c" + cur.title + "\u201d.\n\nReplace it with \u201c" + neu.title + "\u201d?")){
+            log("Cancelled \u2014 index.html left as \u201c" + cur.title + "\u201d.", "dim");
+            return;
+          }
+          log("Replacing \u201c" + cur.title + "\u201d with \u201c" + neu.title + "\u201d.", "warn");
+        }
+      } catch(e){ /* no existing index.html \u2014 fine */ }
+    }
+
+    const msg = "Publish " + repo + (isIndex ? "" : " " + target) + (version ? " v" + version : "");
+    const r1 = await putFile(repo, target, branch, content, msg);
+    log(target + " " + r1 + ".", "ok");
 
     if ($("archive").checked && version){
-      const path = "builds/" + repo.toLowerCase() + "-v" + version + ".html";
+      const stem = isIndex ? repo.toLowerCase() : target.replace(/\.html?$/i, "").split("/").pop().toLowerCase();
+      const path = "builds/" + stem + "-v" + version + ".html";
       const r2 = await putFile(repo, path, branch, content, "Archive " + repo + " v" + version);
       log(path + " " + r2 + ".", "ok");
     } else if ($("archive").checked){
@@ -612,7 +655,7 @@ $("publish").addEventListener("click", async () => {
       log(e.message + (created ? " The site won't be live until Pages is on: repo Settings \u2192 Pages \u2192 " + branch + " / root." : ""), "warn");
     }
 
-    const pageUrl = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/index.html";
+    const pageUrl = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/" + target;
     const name = $("appname").value.trim() || repo;
 
     if ($("toGrid").checked && repo !== "Grid"){
@@ -624,11 +667,11 @@ $("publish").addEventListener("click", async () => {
       catch(e){ log("Stoogle registration skipped: " + e.message, "warn"); }
     }
 
-    const live = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/";
-    log('Done. <a href="' + live + '" target="_blank" rel="noopener">Open ' + repo + '</a>', "ok");
+    const live = "https://" + OWNER.toLowerCase() + ".github.io/" + repo + "/" + (isIndex ? "" : target);
+    log('Done. <a href="' + live + '" target="_blank" rel="noopener">Open ' + repo + (isIndex ? "" : "/" + target) + '</a>', "ok");
     if (created) log("New sites usually take a minute or two for the first build\u2026", "dim");
     else log("Checking the live page\u2026", "dim");
-    await verify(repo, version, created ? 12 : 5);
+    await verify(repo, version, created ? 12 : 5, target);
   } catch(err){
     log(String(err.message || err), "err");
   } finally {

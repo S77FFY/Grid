@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Publish">
 <meta name="app-repo" content="Grid">
-<meta name="app-version" content="1.1.7">
+<meta name="app-version" content="1.1.9">
 <meta name="app-file" content="publish.html">
 <title>Publish</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -121,7 +121,7 @@
 <body>
 
 <h1>PUBLISHER</h1>
-<div id="stamp">PUBLISH v1.1.7</div>
+<div id="stamp">PUBLISH v1.1.9</div>
 <div class="sub">github.com/S77FFY &rarr; index.html</div>
 
 <section>
@@ -181,21 +181,21 @@
 <section>
   <div class="step">4 &middot; Register</div>
   <div class="check">
-    <input type="checkbox" id="toGrid">
-    <label for="toGrid" style="margin:0">Add a tile to the Grid</label>
+    <input type="checkbox" id="toGrid" checked>
+    <label for="toGrid" style="margin:0">Add a tile to the Grid (untick to keep it hidden)</label>
   </div>
   <div class="check">
     <input type="checkbox" id="toStoogle">
     <label for="toStoogle" style="margin:0">Add an entry to Stoogle</label>
   </div>
   <label for="appname">Display name</label>
-  <input type="text" id="appname" placeholder="Triangles">
+  <input type="text" id="appname" autocomplete="off">
   <label for="desc">One-line description (Stoogle)</label>
-  <input type="text" id="desc" placeholder="Solver for triangle-count path puzzles.">
+  <input type="text" id="desc" autocomplete="off">
   <label for="tags">Search tags (Stoogle)</label>
-  <input type="text" id="tags" placeholder="puzzle solver triangles witness grid">
+  <input type="text" id="tags" autocomplete="off">
   <div class="hint">
-    Skipped automatically if the page is already listed. Both files get their patch version bumped.
+    Untick &ldquo;Add a tile&rdquo; to publish a game without showing it yet; tick it again when you release it. Skipped automatically if the page is already listed, and never added when publishing to the Grid repo itself (Grid, Publish). Both files get their patch version bumped.
   </div>
 </section>
 
@@ -332,7 +332,10 @@ $("file").addEventListener("change", e => {
     wantedRepo = guess;
     if (guess) selectRepo(guess);
     if (ver) $("version").value = ver;
-    if (!$("appname").value) $("appname").value = meta.repo || guess || "";
+    /* Fresh details for every file, so nothing carries over from the last app. */
+    $("appname").value = meta.repo || guess || "";
+    $("desc").value = "";
+    $("tags").value = "";
 
     setSavePath(meta.file || (/^publish/i.test(f.name) || /^publish$/i.test(meta.title) ? "publish.html" : "index.html"));
 
